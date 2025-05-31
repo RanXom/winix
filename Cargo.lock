@@ -123,16 +123,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
 
 [[package]]
-name = "linux_cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "colored",
- "winapi",
- "windows-acl",
-]
-
-[[package]]
 name = "memoffset"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -286,3 +276,13 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+
+[[package]]
+name = "winix"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "colored",
+ "winapi",
+ "windows-acl",
+]

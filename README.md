@@ -25,29 +25,14 @@ Winix brings familiar Unix/Linux commands to Windows natively. Currently support
 
 1. Go to the [Releases page](https://github.com/your-username/winix/releases)
 2. Download `winix.exe` from the latest release
-3. Place it in a directory in your PATH or run directly
+3. Run it directly
 
-### From Source
-
-```bash
-git clone https://github.com/your-username/winix.git
-cd winix
-cargo build --release
-```
-
-## Usage
-
-Run `winix` to start the interactive shell:
-
-```bash
-winix
-```
 
 ### chmod Command
 
 ```bash
 # Octal notation
-chmod 755 file.txt
+chmod 755 <"your full path for the file">
 chmod 644 document.pdf
 
 # Symbolic notation

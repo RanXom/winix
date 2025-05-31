@@ -23,7 +23,7 @@ Winix brings familiar Unix/Linux commands to Windows natively. Currently support
 
 ### Download from GitHub Releases
 
-1. Go to the [Releases page](https://github.com/your-username/winix/releases)
+1. Go to the [Releases page](https://github.com/0xsambit/winix/releases)
 2. Download `winix.exe` from the latest release
 3. Run it directly
 

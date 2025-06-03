@@ -1,7 +1,9 @@
 use colored::*;
 use std::io::{self, Write};
 mod chmod;
-
+mod chown;
+mod ps;
+mod uname;
 fn main() {
     show_splash_screen();
     command_loop();
@@ -27,9 +29,12 @@ fn show_splash_screen() {
     println!();
     println!("{}", "Available Commands:".bold().white());
     println!(
-        "  {}\n  {}",
+        "  {}\n  {}\n  {}\n  {}\n  {}",
         "chmod".bold().yellow(),
-        "exit or quit".bold().red()
+        "chown".bold().yellow(),
+        "uname".bold().yellow(),
+        "ps".bold().yellow(),
+        "exit".bold().red()
     );
     println!();
 }
@@ -80,11 +85,35 @@ fn command_loop() {
                     chmod::execute(&args);
                 }
             }
+
+            "chown" => {
+                if parts.len() < 3 {
+                    println!("{}", "Usage: chown [OWNER][:[GROUP]] FILE...".red());
+                    println!();
+                    println!("{}", "Examples:".yellow());
+                    println!("  {}", "chown user file.txt".dimmed());
+                    println!("  {}", "chown user:group file.txt".dimmed());
+                    println!("  {}", "chown :group file.txt".dimmed());
+                } else {
+                    // Pass all arguments except the command itself
+                    let args: Vec<&str> = parts[1..].to_vec();
+                    chown::execute(&args);
+                }
+            }
+            "uname" => {
+                uname::execute();
+            }
+            "ps" => {
+                ps::execute();
+            }
             "help" => {
                 println!("{}", "Available Commands:".bold().white());
                 println!(
-                    "  {}\n  {}",
+                    "  {}\n  {}\n  {}\n  {}\n  {}",
                     "chmod <permissions> <file>".bold().yellow(),
+                    "chown <owner_name> <file>".bold().yellow(),
+                    "uname".bold().yellow(),
+                    "ps".bold().yellow(),
                     "exit or quit".bold().red()
                 );
             }

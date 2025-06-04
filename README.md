@@ -118,7 +118,7 @@ cargo build --release
 
 ## Contributing
 
-Contributions welcome! Please open an issue or submit a pull request.
+Contributions welcome! Please open an issue or submit a pull request. Read [Contributions](https://github.com/0xsambit/winix/blob/master/CONTRIBUTING.md)
 
 ## License
 

@@ -4,27 +4,17 @@ pub fn execute() {
     let mut sys = System::new_all();
 
     sys.refresh_all();
-
-    // RAM and swap information with formatted memory:
-    println!("Used memory : {}", format_memory(sys.used_memory()));
-    println!("Total memory: {}", format_memory(sys.total_memory()));
-    println!("Total swap  : {}", format_memory(sys.total_swap()));
-    println!("Used swap   : {}", format_memory(sys.used_swap()));
-
     // Display system information (handle Option types):
     println!(
         "System name:             {}",
         System::name().unwrap_or_else(|| "Unknown".to_string())
     );
 
-    println!(
-        "System kernel version:   {}",
-        System::kernel_version().unwrap_or_else(|| "Unknown".to_string())
-    );
+    println!("System kernel version:   {}", System::kernel_long_version());
 
     println!(
         "System OS version:       {}",
-        System::os_version().unwrap_or_else(|| "Unknown".to_string())
+        System::long_os_version().unwrap_or_else(|| "Unknown".to_string())
     );
 
     println!(
@@ -34,9 +24,15 @@ pub fn execute() {
 
     println!("CPUs:         {}", sys.cpus().len());
     println!("CPU usage:    {}", sys.global_cpu_usage());
+    println!("CPU Architecture: {:?}", System::cpu_arch());
+    println!(
+        "Physical cores: {}",
+        System::physical_core_count().map_or("Unknown".to_string(), |count| count.to_string())
+    );
+
     // Network interfaces with formatted data:
     let networks = Networks::new_with_refreshed_list();
-    println!("Networks:");
+    println!("\nNetworks:");
     for (interface_name, data) in &networks {
         println!(
             "{interface_name}: {} (down) / {} (up)",

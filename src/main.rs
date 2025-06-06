@@ -2,8 +2,12 @@ use colored::*;
 use std::io::{self, Write};
 mod chmod;
 mod chown;
+mod df;
+mod free;
 mod ps;
+mod sensors;
 mod uname;
+mod uptime;
 fn main() {
     show_splash_screen();
     command_loop();
@@ -29,11 +33,15 @@ fn show_splash_screen() {
     println!();
     println!("{}", "Available Commands:".bold().white());
     println!(
-        "  {}\n  {}\n  {}\n  {}\n  {}",
+        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
         "chmod".bold().yellow(),
         "chown".bold().yellow(),
         "uname".bold().yellow(),
         "ps".bold().yellow(),
+        "sensors".bold().yellow(),
+        "free".bold().yellow(),
+        "uptime".bold().yellow(),
+        "df".bold().yellow(),
         "exit".bold().red()
     );
     println!();
@@ -59,6 +67,13 @@ fn command_loop() {
         match command.as_str() {
             "exit" | "quit" => {
                 println!("{}", "Goodbye!".bold().blue());
+                print!(
+                    "{}",
+                    "Want to contribute to this !? \tCheck out at : "
+                        .bold()
+                        .white()
+                );
+                println!("{}", "https://github.com/0xsambit/winix".bold().green());
                 break;
             }
             "chmod" => {
@@ -106,14 +121,30 @@ fn command_loop() {
             "ps" => {
                 ps::execute();
             }
+            "sensors" => {
+                sensors::execute();
+            }
+            "free" => {
+                free::execute();
+            }
+            "uptime" => {
+                uptime::execute();
+            }
+            "df" => {
+                df::execute();
+            }
             "help" => {
                 println!("{}", "Available Commands:".bold().white());
                 println!(
-                    "  {}\n  {}\n  {}\n  {}\n  {}",
+                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
                     "chmod <permissions> <file>".bold().yellow(),
                     "chown <owner_name> <file>".bold().yellow(),
                     "uname".bold().yellow(),
                     "ps".bold().yellow(),
+                    "sensors".bold().yellow(),
+                    "free".bold().yellow(),
+                    "uptime".bold().yellow(),
+                    "df".bold().yellow(),
                     "exit or quit".bold().red()
                 );
             }

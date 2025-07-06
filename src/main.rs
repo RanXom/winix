@@ -1,16 +1,32 @@
 use colored::*;
+use std::env;
+use std::fs;
 use std::io::{self, Write};
+
+mod cd;
 mod chmod;
 mod chown;
 mod df;
 mod free;
 mod ps;
 mod sensors;
+mod tui;
 mod uname;
 mod uptime;
+
 fn main() {
-    show_splash_screen();
-    command_loop();
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() > 1 && args[1] == "--tui" {
+        // Run TUI mode
+        if let Err(err) = tui::run_tui() {
+            eprintln!("Error running TUI: {}", err);
+        }
+    } else {
+        // Run original command-line mode
+        show_splash_screen();
+        command_loop();
+    }
 }
 
 fn show_splash_screen() {
@@ -31,9 +47,17 @@ fn show_splash_screen() {
             .blue()
     );
     println!();
+    println!(
+        "{}",
+        "💡 TIP: Run with --tui for a beautiful terminal interface!"
+            .bold()
+            .cyan()
+    );
+    println!("{}", "Example: winix --tui".dimmed());
+    println!();
     println!("{}", "Available Commands:".bold().white());
     println!(
-        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
         "chmod".bold().yellow(),
         "chown".bold().yellow(),
         "uname".bold().yellow(),
@@ -42,6 +66,9 @@ fn show_splash_screen() {
         "free".bold().yellow(),
         "uptime".bold().yellow(),
         "df".bold().yellow(),
+        "cd".bold().yellow(),
+        "pwd".bold().yellow(),
+        "ls".bold().yellow(),
         "exit".bold().red()
     );
     println!();
@@ -49,7 +76,14 @@ fn show_splash_screen() {
 
 fn command_loop() {
     loop {
-        print!("{}", "winix> ".bold().green());
+        // Show current directory in the prompt
+        let cwd = env::current_dir().unwrap_or_else(|_| "?".into());
+        print!(
+            "{} {} ",
+            "WX".bold().white(),
+            format!("{}", cwd.display()).white()
+        );
+        print!("{}", "> ".bold().green());
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
@@ -133,10 +167,31 @@ fn command_loop() {
             "df" => {
                 df::execute();
             }
+            "cd" => {
+                if parts.len() < 2 {
+                    println!("{}", "Usage: cd <directory>".red());
+                } else {
+                    match cd_command(parts[1]) {
+                        Ok(_) => {}
+                        Err(e) => println!("{}", format!("cd: {}", e).red()),
+                    }
+                }
+            }
+            "pwd" => match pwd_command() {
+                Ok(_) => {}
+                Err(e) => println!("{}", format!("pwd: {}", e).red()),
+            },
+            "ls" => {
+                let dir = if parts.len() > 1 { parts[1] } else { "." };
+                match ls_command(dir) {
+                    Ok(_) => {}
+                    Err(e) => println!("{}", format!("ls: {}", e).red()),
+                }
+            }
             "help" => {
                 println!("{}", "Available Commands:".bold().white());
                 println!(
-                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
                     "chmod <permissions> <file>".bold().yellow(),
                     "chown <owner_name> <file>".bold().yellow(),
                     "uname".bold().yellow(),
@@ -145,6 +200,9 @@ fn command_loop() {
                     "free".bold().yellow(),
                     "uptime".bold().yellow(),
                     "df".bold().yellow(),
+                    "cd <directory>".bold().yellow(),
+                    "pwd".bold().yellow(),
+                    "ls [directory]".bold().yellow(),
                     "exit or quit".bold().red()
                 );
             }
@@ -154,4 +212,31 @@ fn command_loop() {
             }
         }
     }
+}
+
+// --- CD, PWD, and LS commands ---
+
+fn cd_command(path: &str) -> std::io::Result<()> {
+    std::env::set_current_dir(path)
+}
+
+fn pwd_command() -> std::io::Result<()> {
+    let cwd = std::env::current_dir()?;
+    println!("{}", cwd.display().to_string().bold().cyan());
+    Ok(())
+}
+
+fn ls_command(path: &str) -> std::io::Result<()> {
+    let entries = fs::read_dir(path)?;
+    for entry in entries {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if entry.file_type()?.is_dir() {
+            println!("{}", file_name.blue().bold());
+        } else {
+            println!("{}", file_name.white());
+        }
+    }
+    Ok(())
 }

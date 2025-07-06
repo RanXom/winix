@@ -280,48 +280,51 @@ fn run_app(
     loop {
         terminal.draw(|f| ui(f, app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press {
-                if app.show_command_mode {
-                    match key.code {
-                        KeyCode::Char(c) => {
-                            app.command_input.push(c);
+        // Use non-blocking event polling with a short timeout for responsiveness
+        if event::poll(Duration::from_millis(16))? {
+            if let Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    if app.show_command_mode {
+                        match key.code {
+                            KeyCode::Char(c) => {
+                                app.command_input.push(c);
+                            }
+                            KeyCode::Backspace => {
+                                app.command_input.pop();
+                            }
+                            KeyCode::Enter => {
+                                app.execute_command();
+                            }
+                            KeyCode::Esc => {
+                                app.toggle_command_mode();
+                            }
+                            _ => {}
                         }
-                        KeyCode::Backspace => {
-                            app.command_input.pop();
+                    } else {
+                        match key.code {
+                            KeyCode::Char('q') | KeyCode::Char('Q') => {
+                                app.should_quit = true;
+                            }
+                            KeyCode::Char('h') | KeyCode::Char('H') => {
+                                app.toggle_help();
+                            }
+                            KeyCode::Char('c') | KeyCode::Char('C') => {
+                                app.toggle_command_mode();
+                            }
+                            KeyCode::Left => {
+                                app.previous_tab();
+                            }
+                            KeyCode::Right => {
+                                app.next_tab();
+                            }
+                            KeyCode::Tab => {
+                                app.next_tab();
+                            }
+                            KeyCode::Char('r') | KeyCode::Char('R') => {
+                                app.last_update = Instant::now();
+                            }
+                            _ => {}
                         }
-                        KeyCode::Enter => {
-                            app.execute_command();
-                        }
-                        KeyCode::Esc => {
-                            app.toggle_command_mode();
-                        }
-                        _ => {}
-                    }
-                } else {
-                    match key.code {
-                        KeyCode::Char('q') | KeyCode::Char('Q') => {
-                            app.should_quit = true;
-                        }
-                        KeyCode::Char('h') | KeyCode::Char('H') => {
-                            app.toggle_help();
-                        }
-                        KeyCode::Char('c') | KeyCode::Char('C') => {
-                            app.toggle_command_mode();
-                        }
-                        KeyCode::Left => {
-                            app.previous_tab();
-                        }
-                        KeyCode::Right => {
-                            app.next_tab();
-                        }
-                        KeyCode::Tab => {
-                            app.next_tab();
-                        }
-                        KeyCode::Char('r') | KeyCode::Char('R') => {
-                            app.last_update = Instant::now();
-                        }
-                        _ => {}
                     }
                 }
             }

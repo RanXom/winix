@@ -17,15 +17,18 @@ mod uptime;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() > 1 && args[1] == "--tui" {
-        // Run TUI mode
-        if let Err(err) = tui::run_tui() {
-            eprintln!("Error running TUI: {}", err);
-        }
-    } else {
-        // Run original command-line mode
+    if args.len() > 1 && args[1] == "--cli" {
+        // Run original command-line mode (optional fallback)
         show_splash_screen();
         command_loop();
+    } else {
+        // Run TUI mode by default
+        if let Err(err) = tui::run_tui() {
+            eprintln!("Error running TUI: {}", err);
+            eprintln!("Falling back to CLI mode...");
+            show_splash_screen();
+            command_loop();
+        }
     }
 }
 
@@ -49,11 +52,16 @@ fn show_splash_screen() {
     println!();
     println!(
         "{}",
-        "💡 TIP: Run with --tui for a beautiful terminal interface!"
+        "� RECOMMENDED: Launch the beautiful TUI interface with: winix --tui"
+            .bold()
+            .green()
+    );
+    println!(
+        "{}",
+        "   Experience all commands in a modern, responsive terminal interface!"
             .bold()
             .cyan()
     );
-    println!("{}", "Example: winix --tui".dimmed());
     println!();
     println!("{}", "Available Commands:".bold().white());
     println!(

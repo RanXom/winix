@@ -8,6 +8,7 @@ mod chmod;
 mod chown;
 mod df;
 mod free;
+mod git;
 mod ps;
 mod sensors;
 mod tui;
@@ -65,7 +66,7 @@ fn show_splash_screen() {
     println!();
     println!("{}", "Available Commands:".bold().white());
     println!(
-        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
         "chmod".bold().yellow(),
         "chown".bold().yellow(),
         "uname".bold().yellow(),
@@ -77,19 +78,45 @@ fn show_splash_screen() {
         "cd".bold().yellow(),
         "pwd".bold().yellow(),
         "ls".bold().yellow(),
+        "git/gst".bold().yellow(),
         "exit".bold().red()
     );
     println!();
 }
 
 fn command_loop() {
+    // Cache git info to avoid repeated expensive operations
+    let mut cached_git_info = String::new();
+    let mut last_dir = String::new();
+    let mut git_check_counter = 0;
+
     loop {
         // Show current directory in the prompt
         let cwd = env::current_dir().unwrap_or_else(|_| "?".into());
+        let current_dir = cwd.display().to_string();
+
+        // Only check git status every 10 iterations or when directory changes
+        // This significantly improves performance
+        if current_dir != last_dir || git_check_counter % 10 == 0 {
+            cached_git_info = if git::is_git_repo() {
+                if let Some(branch) = git::get_current_branch() {
+                    // Skip the expensive status check for better performance
+                    format!(" ({})", branch.magenta())
+                } else {
+                    " (git)".dimmed().to_string()
+                }
+            } else {
+                String::new()
+            };
+            last_dir = current_dir.clone();
+        }
+        git_check_counter += 1;
+
         print!(
-            "{} {} ",
+            "{} {}{}",
             "WX".bold().white(),
-            format!("{}", cwd.display()).white()
+            current_dir.white(),
+            cached_git_info
         );
         print!("{}", "> ".bold().green());
         io::stdout().flush().unwrap();
@@ -175,6 +202,19 @@ fn command_loop() {
             "df" => {
                 df::execute();
             }
+            "git" => {
+                if parts.len() == 1 {
+                    // Show git help if no arguments
+                    git::execute(&[]);
+                } else if parts.len() == 2 && parts[1] == "--interactive" {
+                    // Enter interactive git mode
+                    git::interactive_mode();
+                } else {
+                    // Pass all arguments except the command itself
+                    let args: Vec<&str> = parts[1..].to_vec();
+                    git::execute(&args);
+                }
+            }
             "cd" => {
                 if parts.len() < 2 {
                     println!("{}", "Usage: cd <directory>".red());
@@ -199,7 +239,7 @@ fn command_loop() {
             "help" => {
                 println!("{}", "Available Commands:".bold().white());
                 println!(
-                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
                     "chmod <permissions> <file>".bold().yellow(),
                     "chown <owner_name> <file>".bold().yellow(),
                     "uname".bold().yellow(),
@@ -211,6 +251,7 @@ fn command_loop() {
                     "cd <directory>".bold().yellow(),
                     "pwd".bold().yellow(),
                     "ls [directory]".bold().yellow(),
+                    "git [command] [options]".bold().yellow(),
                     "exit or quit".bold().red()
                 );
             }

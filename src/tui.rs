@@ -78,14 +78,14 @@ impl App {
     }
 
     pub fn next_tab(&mut self) {
-        self.selected_tab = (self.selected_tab + 1) % 6;
+        self.selected_tab = (self.selected_tab + 1) % 7;
     }
 
     pub fn previous_tab(&mut self) {
         if self.selected_tab > 0 {
             self.selected_tab -= 1;
         } else {
-            self.selected_tab = 5;
+            self.selected_tab = 6;
         }
     }
 
@@ -203,6 +203,24 @@ impl App {
                     }
                 }
             }
+            "git" => {
+                if parts.len() < 2 {
+                    self.command_output
+                        .push("Usage: git <command> [options]".to_string());
+                    self.command_output.push("Examples:".to_string());
+                    self.command_output.push("  git status".to_string());
+                    self.command_output.push("  git log --oneline".to_string());
+                    self.command_output.push("  git add .".to_string());
+                    self.command_output
+                        .push("  git commit -m \"message\"".to_string());
+                } else {
+                    let args: Vec<&str> = parts[1..].to_vec();
+                    let output = capture_git_output(&args);
+                    for line in output.lines() {
+                        self.command_output.push(line.to_string());
+                    }
+                }
+            }
             "clear" => {
                 self.command_output.clear();
             }
@@ -230,6 +248,8 @@ impl App {
                     .push("  chmod        - Change permissions".to_string());
                 self.command_output
                     .push("  chown        - Change ownership".to_string());
+                self.command_output
+                    .push("  git          - Git version control".to_string());
                 self.command_output
                     .push("  clear        - Clear output".to_string());
                 self.command_output
@@ -280,8 +300,8 @@ fn run_app(
     loop {
         terminal.draw(|f| ui(f, app))?;
 
-        // Use non-blocking event polling with a short timeout for responsiveness
-        if event::poll(Duration::from_millis(16))? {
+        // Use slightly longer polling for better performance while maintaining responsiveness
+        if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     if app.show_command_mode {
@@ -334,8 +354,8 @@ fn run_app(
             break;
         }
 
-        // Auto-refresh every 5 seconds
-        if app.last_update.elapsed() >= Duration::from_secs(5) {
+        // Auto-refresh every 10 seconds to reduce system calls
+        if app.last_update.elapsed() >= Duration::from_secs(10) {
             app.last_update = Instant::now();
         }
     }
@@ -364,7 +384,15 @@ fn ui(f: &mut Frame, app: &mut App) {
         .split(chunks[1]);
 
     // Tab bar
-    let tab_titles = vec!["System", "Processes", "Memory", "Disks", "Sensors", "Files"];
+    let tab_titles = vec![
+        "System",
+        "Processes",
+        "Memory",
+        "Disks",
+        "Sensors",
+        "Files",
+        "Git",
+    ];
     let tabs = Tabs::new(tab_titles)
         .block(
             Block::default()
@@ -389,6 +417,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         3 => render_disk_usage(f, main_chunks[1]),
         4 => render_sensors(f, main_chunks[1]),
         5 => render_file_browser(f, main_chunks[1], app),
+        6 => render_git_info(f, main_chunks[1]),
         _ => {}
     }
 
@@ -620,7 +649,7 @@ fn render_file_browser(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_help_popup(f: &mut Frame) {
-    let area = centered_rect(50, 60, f.area());
+    let area = centered_rect(70, 80, f.area());
     f.render_widget(Clear, area);
 
     let help_text = vec![
@@ -660,7 +689,7 @@ fn render_help_popup(f: &mut Frame) {
 }
 
 fn render_command_popup(f: &mut Frame, app: &App) {
-    let area = centered_rect(70, 40, f.area());
+    let area = centered_rect(80, 60, f.area());
     f.render_widget(Clear, area);
 
     let chunks = Layout::default()
@@ -1096,4 +1125,297 @@ fn capture_chown_output(args: &[&str]) -> String {
     } else {
         format!("File '{}' not found", file)
     }
+}
+
+fn capture_git_output(args: &[&str]) -> String {
+    use std::process::Command;
+
+    // Check if git is available
+    if !crate::git::is_git_available() {
+        return "Error: Git is not installed or not in PATH".to_string();
+    }
+
+    match Command::new("git").args(args).output() {
+        Ok(output) => {
+            let mut result = String::new();
+
+            // Add stdout
+            if !output.stdout.is_empty() {
+                result.push_str(&String::from_utf8_lossy(&output.stdout));
+            }
+
+            // Add stderr
+            if !output.stderr.is_empty() {
+                if !result.is_empty() {
+                    result.push('\n');
+                }
+                result.push_str(&String::from_utf8_lossy(&output.stderr));
+            }
+
+            // If command failed and no output, add error message
+            if !output.status.success() && result.is_empty() {
+                if let Some(code) = output.status.code() {
+                    result = format!("Git command failed with exit code: {}", code);
+                } else {
+                    result = "Git command failed".to_string();
+                }
+            }
+
+            result
+        }
+        Err(e) => {
+            format!("Failed to execute git command: {}", e)
+        }
+    }
+}
+
+fn render_git_info(f: &mut Frame, area: Rect) {
+    // Check if we're in a git repository
+    let is_git_repo = crate::git::is_git_repo();
+
+    if !is_git_repo {
+        let no_git_text = vec![
+            Line::from(vec![Span::styled(
+                "Not a Git Repository",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )]),
+            Line::from(""),
+            Line::from(vec![Span::styled(
+                "Navigate to a Git repository or initialize one with:",
+                Style::default().fg(Color::Gray),
+            )]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("git init", Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    " - Initialize a new Git repository",
+                    Style::default().fg(Color::Gray),
+                ),
+            ]),
+            Line::from(vec![
+                Span::styled("git clone <url>", Style::default().fg(Color::Cyan)),
+                Span::styled(
+                    " - Clone an existing repository",
+                    Style::default().fg(Color::Gray),
+                ),
+            ]),
+        ];
+
+        let paragraph = Paragraph::new(no_git_text)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .title("Git Information")
+                    .border_type(BorderType::Plain),
+            )
+            .wrap(Wrap { trim: true });
+
+        f.render_widget(paragraph, area);
+        return;
+    }
+
+    // We're in a git repository, show git information
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(8), // Repository info
+            Constraint::Length(8), // Branch info
+            Constraint::Min(0),    // Status/Log
+        ])
+        .split(area);
+
+    // Repository Information
+    render_git_repo_info(f, layout[0]);
+
+    // Branch Information
+    render_git_branch_info(f, layout[1]);
+
+    // Status and recent commits
+    render_git_status_and_log(f, layout[2]);
+}
+
+fn render_git_repo_info(f: &mut Frame, area: Rect) {
+    let current_dir = std::env::current_dir()
+        .unwrap_or_else(|_| "?".into())
+        .display()
+        .to_string();
+
+    let repo_info = vec![
+        Line::from(vec![
+            Span::styled("Repository: ", Style::default().fg(Color::Cyan)),
+            Span::styled(current_dir, Style::default().fg(Color::White)),
+        ]),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Git Status: ", Style::default().fg(Color::Cyan)),
+            if let Some(status) = crate::git::get_repo_status() {
+                match status.as_str() {
+                    "clean" => Span::styled("Clean ✓", Style::default().fg(Color::Green)),
+                    "dirty" => Span::styled("Modified ✗", Style::default().fg(Color::Red)),
+                    _ => Span::styled("Unknown", Style::default().fg(Color::Yellow)),
+                }
+            } else {
+                Span::styled("Error getting status", Style::default().fg(Color::Red))
+            },
+        ]),
+    ];
+
+    let paragraph = Paragraph::new(repo_info)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Repository Information")
+                .border_type(BorderType::Plain),
+        )
+        .wrap(Wrap { trim: true });
+
+    f.render_widget(paragraph, area);
+}
+
+fn render_git_branch_info(f: &mut Frame, area: Rect) {
+    let current_branch = crate::git::get_current_branch().unwrap_or_else(|| "HEAD".to_string());
+
+    let branch_info = vec![
+        Line::from(vec![
+            Span::styled("Current Branch: ", Style::default().fg(Color::Cyan)),
+            Span::styled(
+                current_branch,
+                Style::default()
+                    .fg(Color::Magenta)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(""),
+        Line::from(vec![Span::styled(
+            "Quick Commands:",
+            Style::default().fg(Color::Yellow),
+        )]),
+        Line::from(vec![Span::styled(
+            "  Press 'c' to run git commands",
+            Style::default().fg(Color::Gray),
+        )]),
+    ];
+
+    let paragraph = Paragraph::new(branch_info)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Branch Information")
+                .border_type(BorderType::Plain),
+        )
+        .wrap(Wrap { trim: true });
+
+    f.render_widget(paragraph, area);
+}
+
+fn render_git_status_and_log(f: &mut Frame, area: Rect) {
+    let layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(area);
+
+    // Status information
+    render_git_status_detailed(f, layout[0]);
+
+    // Recent commits
+    render_git_recent_commits(f, layout[1]);
+}
+
+fn render_git_status_detailed(f: &mut Frame, area: Rect) {
+    use std::process::Command;
+
+    let status_output = Command::new("git")
+        .args(&["status", "--porcelain"])
+        .output()
+        .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
+        .unwrap_or_else(|_| "Error getting status".to_string());
+
+    let status_lines: Vec<Line> = if status_output.trim().is_empty() {
+        vec![Line::from(vec![Span::styled(
+            "Working tree clean",
+            Style::default().fg(Color::Green),
+        )])]
+    } else {
+        status_output
+            .lines()
+            .take(10) // Limit to first 10 files
+            .map(|line| {
+                let (status, filename) = if line.len() >= 3 {
+                    (&line[..2], &line[3..])
+                } else {
+                    ("??", line)
+                };
+
+                let color = match status.trim() {
+                    "M" | "AM" => Color::Yellow,
+                    "A" | "AA" => Color::Green,
+                    "D" | "AD" => Color::Red,
+                    "R" | "AR" => Color::Blue,
+                    "C" | "AC" => Color::Cyan,
+                    "??" => Color::Gray,
+                    _ => Color::White,
+                };
+
+                Line::from(vec![
+                    Span::styled(format!("{} ", status), Style::default().fg(color)),
+                    Span::styled(filename, Style::default().fg(Color::White)),
+                ])
+            })
+            .collect()
+    };
+
+    let paragraph = Paragraph::new(status_lines)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Working Tree Status")
+                .border_type(BorderType::Plain),
+        )
+        .wrap(Wrap { trim: true });
+
+    f.render_widget(paragraph, area);
+}
+
+fn render_git_recent_commits(f: &mut Frame, area: Rect) {
+    use std::process::Command;
+
+    let log_output = Command::new("git")
+        .args(&["log", "--oneline", "-10"])
+        .output()
+        .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
+        .unwrap_or_else(|_| "Error getting log".to_string());
+
+    let log_lines: Vec<Line> = if log_output.trim().is_empty() {
+        vec![Line::from(vec![Span::styled(
+            "No commits yet",
+            Style::default().fg(Color::Gray),
+        )])]
+    } else {
+        log_output
+            .lines()
+            .map(|line| {
+                let parts: Vec<&str> = line.splitn(2, ' ').collect();
+                if parts.len() == 2 {
+                    Line::from(vec![
+                        Span::styled(parts[0], Style::default().fg(Color::Yellow)),
+                        Span::styled(" ", Style::default()),
+                        Span::styled(parts[1], Style::default().fg(Color::White)),
+                    ])
+                } else {
+                    Line::from(vec![Span::styled(line, Style::default().fg(Color::White))])
+                }
+            })
+            .collect()
+    };
+
+    let paragraph = Paragraph::new(log_lines)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Recent Commits")
+                .border_type(BorderType::Plain),
+        )
+        .wrap(Wrap { trim: true });
+
+    f.render_widget(paragraph, area);
 }

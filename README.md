@@ -22,6 +22,11 @@ A high-performance command-line utility that brings essential Unix/Linux functio
 
 </div>
 
+
+![Screenshot (750)](https://github.com/user-attachments/assets/47c994fc-0937-4840-af18-61b702da76e8)
+
+![Screenshot (754)](https://github.com/user-attachments/assets/7447b0df-1f0a-4d1b-af85-daee694d5341)
+
 ## Overview
 
 Winix is a cross-platform command-line application designed to bridge the gap between Unix/Linux and Windows environments. Built with Rust for optimal performance and reliability, it provides native implementations of essential Unix commands that Windows users frequently need.

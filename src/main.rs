@@ -9,6 +9,7 @@ mod chown;
 mod df;
 mod free;
 mod git;
+mod powershell;
 mod ps;
 mod sensors;
 mod tui;
@@ -66,7 +67,7 @@ fn show_splash_screen() {
     println!();
     println!("{}", "Available Commands:".bold().white());
     println!(
-        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
         "chmod".bold().yellow(),
         "chown".bold().yellow(),
         "uname".bold().yellow(),
@@ -78,7 +79,8 @@ fn show_splash_screen() {
         "cd".bold().yellow(),
         "pwd".bold().yellow(),
         "ls".bold().yellow(),
-        "git/gst".bold().yellow(),
+        "git".bold().yellow(),
+        "psh/powershell".bold().cyan(),
         "exit".bold().red()
     );
     println!();
@@ -215,6 +217,19 @@ fn command_loop() {
                     git::execute(&args);
                 }
             }
+            "psh" | "powershell" => {
+                if parts.len() == 1 {
+                    // Show PowerShell help if no arguments
+                    powershell::execute(&[]);
+                } else if parts.len() == 2 && parts[1] == "--interactive" {
+                    // Enter interactive PowerShell mode
+                    powershell::interactive_mode();
+                } else {
+                    // Pass all arguments except the command itself
+                    let args: Vec<&str> = parts[1..].to_vec();
+                    powershell::execute(&args);
+                }
+            }
             "cd" => {
                 if parts.len() < 2 {
                     println!("{}", "Usage: cd <directory>".red());
@@ -239,7 +254,7 @@ fn command_loop() {
             "help" => {
                 println!("{}", "Available Commands:".bold().white());
                 println!(
-                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
                     "chmod <permissions> <file>".bold().yellow(),
                     "chown <owner_name> <file>".bold().yellow(),
                     "uname".bold().yellow(),
@@ -252,6 +267,7 @@ fn command_loop() {
                     "pwd".bold().yellow(),
                     "ls [directory]".bold().yellow(),
                     "git [command] [options]".bold().yellow(),
+                    "psh/powershell [command] [options]".bold().cyan(),
                     "exit or quit".bold().red()
                 );
             }

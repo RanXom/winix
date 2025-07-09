@@ -221,6 +221,24 @@ impl App {
                     }
                 }
             }
+            "psh" | "powershell" => {
+                if parts.len() < 2 {
+                    self.command_output
+                        .push("Usage: psh <command> [options]".to_string());
+                    self.command_output.push("Examples:".to_string());
+                    self.command_output.push("  psh Get-Process".to_string());
+                    self.command_output.push("  psh Get-ChildItem".to_string());
+                    self.command_output.push("  psh Get-Service".to_string());
+                    self.command_output
+                        .push("  psh Test-Connection google.com".to_string());
+                } else {
+                    let args: Vec<&str> = parts[1..].to_vec();
+                    let output = capture_powershell_output(&args);
+                    for line in output.lines() {
+                        self.command_output.push(line.to_string());
+                    }
+                }
+            }
             "clear" => {
                 self.command_output.clear();
             }
@@ -251,15 +269,28 @@ impl App {
                 self.command_output
                     .push("  git          - Git version control".to_string());
                 self.command_output
+                    .push("  psh          - PowerShell commands".to_string());
+                self.command_output
                     .push("  clear        - Clear output".to_string());
                 self.command_output
                     .push("  help         - Show this help".to_string());
+                self.command_output.push("".to_string());
+                self.command_output
+                    .push("Note: Unknown commands will be passed to PowerShell".to_string());
             }
             _ => {
-                self.command_output
-                    .push(format!("Unknown command: '{}'", command));
-                self.command_output
-                    .push("Type 'help' for available commands".to_string());
+                // Fallback to PowerShell for unknown commands
+                let output = capture_powershell_output(&parts);
+                if output.trim().is_empty() {
+                    self.command_output
+                        .push(format!("Unknown command: '{}'", command));
+                    self.command_output
+                        .push("Type 'help' for built-in commands".to_string());
+                } else {
+                    for line in output.lines() {
+                        self.command_output.push(line.to_string());
+                    }
+                }
             }
         }
 
@@ -1169,6 +1200,72 @@ fn capture_git_output(args: &[&str]) -> String {
     }
 }
 
+fn capture_powershell_output(args: &[&str]) -> String {
+    use std::process::Command;
+
+    // Check if PowerShell is available
+    if !crate::powershell::is_powershell_available() {
+        return "Error: PowerShell is not available on this system".to_string();
+    }
+
+    // Get the preferred PowerShell executable
+    let ps_exe = if is_command_available("pwsh") {
+        "pwsh"
+    } else {
+        "powershell"
+    };
+
+    let command_string = args.join(" ");
+
+    match Command::new(ps_exe)
+        .args(&["-Command", &command_string])
+        .output()
+    {
+        Ok(output) => {
+            let mut result = String::new();
+
+            // Add stdout
+            if !output.stdout.is_empty() {
+                result.push_str(&String::from_utf8_lossy(&output.stdout));
+            }
+
+            // Add stderr
+            if !output.stderr.is_empty() {
+                if !result.is_empty() {
+                    result.push('\n');
+                }
+                result.push_str(&String::from_utf8_lossy(&output.stderr));
+            }
+
+            // If command failed and no output, add error message
+            if !output.status.success() && result.is_empty() {
+                if let Some(code) = output.status.code() {
+                    result = format!("PowerShell command failed with exit code: {}", code);
+                } else {
+                    result = "PowerShell command failed".to_string();
+                }
+            }
+
+            result
+        }
+        Err(e) => {
+            format!("Failed to execute PowerShell command: {}", e)
+        }
+    }
+}
+
+fn is_command_available(cmd: &str) -> bool {
+    use std::process::Command;
+    match Command::new(cmd)
+        .arg("-Command")
+        .arg("$PSVersionTable.PSVersion")
+        .output()
+    {
+        Ok(output) => output.status.success(),
+        Err(_) => false,
+    }
+}
+
 fn render_git_info(f: &mut Frame, area: Rect) {
     // Check if we're in a git repository
     let is_git_repo = crate::git::is_git_repo();
@@ -1416,6 +1513,5 @@ fn render_git_recent_commits(f: &mut Frame, area: Rect) {
                 .border_type(BorderType::Plain),
         )
         .wrap(Wrap { trim: true });
-
     f.render_widget(paragraph, area);
 }

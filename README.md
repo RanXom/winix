@@ -56,14 +56,6 @@ src/
 
 ## ⚡ Quick Start
 
-### Binary Release
-
-Download the latest release from the [GitHub Releases](https://github.com/0xsambit/winix/releases) page:
-
-```powershell
-curl -L -o winix.exe https://github.com/0xsambit/winix/releases/latest/download/winix.exe
-```
-
 ### Build from Source
 
 ```powershell
@@ -100,6 +92,8 @@ We welcome all contributions! Whether you're fixing bugs, adding features, impro
    - Fill in a clear description of your changes.
 8. **Respond to Reviews**
    - Address feedback and make necessary updates.
+  
+ Most importantly, create a upstream to the main branch of the repo, and pull all the changes as soon as the main branch updates. If any PR causes any wrong change in any other part, than what was pushed, it will be immediately revoked and no further points will be given.
 
 ### Code Style & Standards
 

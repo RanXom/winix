@@ -103,9 +103,10 @@ We welcome all contributions! Whether you're fixing bugs, adding features, impro
 - Keep external dependencies minimal.
 
 ### Issue Reporting
-
+- Firstly, use the [Github Discussions](https://github.com/0xsambit/winix/discussions) to discuss which issues to work on and talk about the features or any questions about the project. Everything related to the project has to be first address in the discussions under appropriate category, only after then issues will be assigned. 
 - Use [GitHub Issues](https://github.com/0xsambit/winix/issues) for bugs, feature requests, and questions.
 - Provide detailed steps to reproduce bugs.
+- It is important to note that if the PA doesn't assign an issue to you, and you complete the PR, it will still be accepted ( if it is correct ) , but no points will be given
 
 ---
 

@@ -81,6 +81,7 @@ We welcome all contributions! Whether you're fixing bugs, adding features, impro
 4. **Make Changes**
    - Implement your feature or fix in the appropriate module.
    - Follow the code style and formatting standards (see below).
+   - Run `cargo run`
 5. **Test Your Changes**
    - Run `cargo test` to ensure all tests pass.
 6. **Commit and Push**
@@ -121,7 +122,8 @@ Contributing to Winix means helping build a tool that empowers Windows users wit
 
 ---
 
-## 🆘 Getting Help
+## 🆘 Getting Help - 
+### Check [Guidlines](https://github.com/0xsambit/winix/blob/master/CONTRIBUTION.md)
 
 If you need help:
 

@@ -24,7 +24,7 @@ A high-performance command-line utility that brings essential Unix/Linux functio
 
 ---
 
-## 🚀 Welcome to Winix – An Open Source Project
+## 🚀 Welcome to Winix 
 
 Winix is a cross-platform command-line application designed to bridge the gap between Unix/Linux and Windows environments. Built with Rust for optimal performance and reliability, it provides native implementations of essential Unix commands that Windows users frequently need.
 

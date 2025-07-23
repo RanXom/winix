@@ -15,8 +15,12 @@ mod sensors;
 mod tui;
 mod uname;
 mod uptime;
+mod sudo;
+mod disown;
 
 fn main() {
+    test_sudo();
+    test_disown();
     let args: Vec<String> = env::args().collect();
 
     if args.len() > 1 && args[1] == "--cli" {
@@ -304,4 +308,14 @@ fn ls_command(path: &str) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
+
+
+
+fn test_sudo() {
+    println!("Running sudo...");
+}
+
+fn test_disown() {
+    println!("Running disown...");
 }

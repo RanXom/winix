@@ -5,7 +5,6 @@
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Language](https://img.shields.io/badge/language-Rust-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Release](https://img.shields.io/github/v/release/0xsambit/winix)
 ![Downloads](https://img.shields.io/github/downloads/0xsambit/winix/total)
 
 **Native Unix Command Implementation for Windows**

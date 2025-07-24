@@ -82,7 +82,7 @@ mod tests {
     fn test_kill_current_process_protection() {
         // Try to kill the current process (should be protected or handled gracefully)
         let current_pid = unsafe { GetCurrentProcessId() };
-        let result = winix::kill::execute(&[&current_pid.to_string()]);
+        let _result = winix::kill::execute(&[&current_pid.to_string()]);
         assert!(true, "Test process should still be running");
     }
 
@@ -236,10 +236,11 @@ mod tests {
         thread::sleep(Duration::from_millis(100));
 
         // Test -s flag with different signals
+        let pid_str = pid.to_string();
         let test_cases = vec![
-            vec!["-s", "TERM", &pid.to_string()],
-            vec!["-s", "9", &pid.to_string()],
-            vec!["-s", "KILL", &pid.to_string()],
+            vec!["-s", "TERM", &pid_str],
+            vec!["-s", "9", &pid_str],
+            vec!["-s", "KILL", &pid_str],
         ];
 
         for args in test_cases {
@@ -254,8 +255,9 @@ mod tests {
             let new_pid = new_child.id();
             thread::sleep(Duration::from_millis(100));
 
+            let new_pid_str = new_pid.to_string();
             let mut test_args = args.clone();
-            test_args[2] = &new_pid.to_string();
+            test_args[2] = &new_pid_str;
 
             let result = winix::kill::execute(&test_args);
             assert!(result.is_ok(), "Kill with -s flag should succeed for args: {:?}", test_args);
@@ -557,7 +559,7 @@ mod tests {
             .spawn()
             .expect("Failed to start ping process");
 
-        let pid = child.id();
+        let _pid = child.id();
         thread::sleep(Duration::from_millis(100));
 
         // Test that signal names are case-insensitive

@@ -73,12 +73,12 @@ fn show_splash_screen() {
     println!();
     println!("{}", "Available Commands:".bold().white());
     println!(
-        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+        "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
         "cd".bold().yellow(),
         "chmod".bold().yellow(),
         "chown".bold().yellow(),
         "df".bold().yellow(),
-        "exit".bold().red()
+        "exit".bold().red(),
         "free".bold().yellow(),
         "git".bold().yellow(),
         "kill".bold().yellow(),
@@ -285,12 +285,12 @@ fn command_loop() {
             "help" => {
                 println!("{}", "Available Commands:".bold().white());
                 println!(
-                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
                     "cd".bold().yellow(),
                     "chmod".bold().yellow(),
                     "chown".bold().yellow(),
                     "df".bold().yellow(),
-                    "exit".bold().red()
+                    "exit".bold().red(),
                     "free".bold().yellow(),
                     "git".bold().yellow(),
                     "kill".bold().yellow(),

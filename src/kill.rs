@@ -30,18 +30,22 @@ Key things addressed:
 */
 
 use colored::*;
-use log::debug;
 use std::thread;
 use std::time::Duration;
 use winapi::um::processthreadsapi::{OpenProcess, TerminateProcess, GetCurrentProcessId};
 use winapi::um::winnt::{PROCESS_TERMINATE, PROCESS_QUERY_INFORMATION};
-use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
+use winapi::um::handleapi::{CloseHandle};
 use winapi::um::errhandlingapi::GetLastError;
 use winapi::um::wincon::{GenerateConsoleCtrlEvent, CTRL_C_EVENT, CTRL_BREAK_EVENT};
 use winapi::um::winuser::{EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE};
 use winapi::um::tlhelp32::{CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS};
-use winapi::shared::windef::{HWND, LPARAM};
-use winapi::shared::minwindef::{BOOL, DWORD, TRUE, FALSE};
+use winapi::shared::windef::{HWND};
+use winapi::shared::minwindef::{BOOL, DWORD, TRUE, FALSE, LPARAM};
+
+// Simple debug macro replacement
+macro_rules! debug {
+    ($($arg:tt)*) => {};
+}
 
 #[derive(Debug, Clone)]
 pub struct KillOptions {
@@ -175,7 +179,7 @@ fn handle_print_only_mode(options: &KillOptions) -> Result<(), String> {
 
 
 // Kill a specific process by PID
-fn kill_process_by_pid(pid: u32, method: &WindowsKillMethod, options: &KillOptions) -> Result<(), String> {
+fn kill_process_by_pid(pid: u32, method: &WindowsKillMethod, _options: &KillOptions) -> Result<(), String> {
     debug!("Attempting to kill PID {} using method {:?}", pid, method);
     validate_pid_safety(pid)?;
     if !process_exists(pid) {
@@ -740,22 +744,24 @@ struct EnumWindowsData {
 
 // Callback function for EnumWindows
 unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {
-    let data = &mut *(lparam as *mut EnumWindowsData);
-    let mut window_pid: DWORD = 0;
-    // Get the process ID that owns this window
-    GetWindowThreadProcessId(hwnd, &mut window_pid);
-    // If this window belongs to our target process
-    if window_pid == data.target_pid {
-        data.windows_found += 1;
-        debug!("Found window for process {}, sending WM_CLOSE", data.target_pid);
-        
-        // Send WM_CLOSE message to the window
-        let result = PostMessageW(hwnd, WM_CLOSE, 0, 0);
-        if result != 0 {
-            data.windows_closed += 1;
+    unsafe {
+        let data = &mut *(lparam as *mut EnumWindowsData);
+        let mut window_pid: DWORD = 0;
+        // Get the process ID that owns this window
+        GetWindowThreadProcessId(hwnd, &mut window_pid);
+        // If this window belongs to our target process
+        if window_pid == data.target_pid {
+            data.windows_found += 1;
+            debug!("Found window for process {}, sending WM_CLOSE", data.target_pid);
+            
+            // Send WM_CLOSE message to the window
+            let result = PostMessageW(hwnd, WM_CLOSE, 0, 0);
+            if result != 0 {
+                data.windows_closed += 1;
+            }
         }
-    }
 
-    TRUE // Continue enumeration
+        TRUE // Continue enumeration
+    }
 }
 

@@ -25,6 +25,7 @@ use std::time::{Duration, Instant};
 pub struct App {
     pub selected_tab: usize,
     pub should_quit: bool,
+    #[allow(dead_code)]
     pub process_list_state: ListState,
     pub last_update: Instant,
     pub show_help: bool,

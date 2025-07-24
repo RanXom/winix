@@ -40,7 +40,7 @@ use winapi::um::wincon::{GenerateConsoleCtrlEvent, CTRL_C_EVENT, CTRL_BREAK_EVEN
 use winapi::um::winuser::{EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE};
 use winapi::um::tlhelp32::{CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS};
 use winapi::shared::windef::{HWND};
-use winapi::shared::minwindef::{BOOL, DWORD, TRUE, FALSE, LPARAM};
+use winapi::shared::minwindef::{BOOL, DWORD, TRUE, LPARAM};
 
 // Simple debug macro replacement
 macro_rules! debug {
@@ -61,6 +61,7 @@ pub struct KillOptions {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum WindowsKillMethod {
     ForceTerminate,    // SIGKILL (9) -> TerminateProcess
     GracefulCtrlC,     // SIGTERM (15), SIGINT (2) -> Ctrl+C

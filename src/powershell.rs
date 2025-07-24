@@ -246,6 +246,7 @@ fn show_powershell_help() {
 }
 
 /// Get PowerShell version information
+#[allow(dead_code)]
 pub fn get_version_info() -> Option<String> {
     let ps_exe = get_powershell_executable();
     match Command::new(ps_exe)
@@ -269,6 +270,7 @@ pub fn get_version_info() -> Option<String> {
 }
 
 /// Check if current directory is accessible via PowerShell
+#[allow(dead_code)]
 pub fn test_current_directory() -> bool {
     let ps_exe = get_powershell_executable();
     match Command::new(ps_exe)

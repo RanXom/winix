@@ -5,19 +5,48 @@ mod tests {
     use std::time::Duration;
     
     use winapi::um::processthreadsapi::{GetCurrentProcessId, OpenProcess};
-    use winapi::um::winnt::PROCESS_QUERY_INFORMATION;
+    use winapi::um::winnt::{PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION};
     use winapi::um::synchapi::WaitForSingleObject;
     use winapi::um::handleapi::CloseHandle;
 
-    #[test]
-    fn test_kill_running_process() {
-        // Starting a long-running process
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"]) // Ping localhost 1000 times
+    // Helper function to create a long-running test process
+    fn create_test_process() -> std::process::Child {
+        // Use PowerShell sleep - much more efficient than ping
+        Command::new("powershell")
+            .args(&["-Command", "Start-Sleep", "30"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .expect("Failed to start ping process");
+            .expect("Failed to start test process")
+    }
+
+    // Alternative helper using CMD timeout (even more lightweight)
+    #[allow(dead_code)]
+    fn create_test_process_alt() -> std::process::Child {
+        Command::new("cmd")
+            .args(&["/c", "timeout", "/t", "30", "/nobreak"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("Failed to start test process")
+    }
+
+    // Ultra-lightweight helper for quick tests - just waits for input
+    #[allow(dead_code)]
+    fn create_quick_test_process() -> std::process::Child {
+        Command::new("cmd")
+            .args(&["/c", "pause"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("Failed to start quick test process")
+    }
+
+    #[test]
+    fn test_kill_running_process() {
+        // Starting a long-running process using PowerShell sleep (much more efficient)
+        let mut child = create_test_process();
 
         let pid = child.id();
         println!("Started process with PID: {}", pid);
@@ -74,12 +103,7 @@ mod tests {
 
     #[test]
     fn test_kill_with_signal() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -122,22 +146,17 @@ mod tests {
 
     #[test]
     fn test_kill_by_process_name() {
-        // Start multiple processes with the same name
+        // Start multiple processes with the same name - using PowerShell for efficiency
         let mut children = Vec::new();
         for _ in 0..2 {
-            let child = Command::new("ping")
-                .args(&["127.0.0.1", "-n", "1000"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .expect("Failed to start ping process");
+            let child = create_test_process();
             children.push(child);
         }
 
         thread::sleep(Duration::from_millis(100));
 
         // Kill by process name (should kill only one by default)
-        let result = winix::kill::execute(&["ping"]);
+        let result = winix::kill::execute(&["powershell"]);
         
         // Note: This test will fail until process name killing is implemented
         // For now, we just check that it doesn't panic
@@ -151,22 +170,17 @@ mod tests {
 
     #[test]
     fn test_kill_all_processes_by_name() {
-        // Start multiple processes with the same name
+        // Start multiple processes with the same name - using PowerShell for efficiency
         let mut children = Vec::new();
         for _ in 0..3 {
-            let child = Command::new("ping")
-                .args(&["127.0.0.1", "-n", "1000"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .expect("Failed to start ping process");
+            let child = create_test_process();
             children.push(child);
         }
 
         thread::sleep(Duration::from_millis(100));
 
         // Kill all processes with name using -a flag
-        let result = winix::kill::execute(&["-a", "ping"]);
+        let result = winix::kill::execute(&["-a", "powershell"]);
         
         // Note: This test will fail until process name killing is implemented
         let _ = result;
@@ -191,12 +205,7 @@ mod tests {
         ];
 
         for (signal, description) in test_signals {
-            let mut child = Command::new("ping")
-                .args(&["127.0.0.1", "-n", "1000"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .expect("Failed to start ping process");
+            let mut child = create_test_process();
 
             let pid = child.id();
             thread::sleep(Duration::from_millis(100));
@@ -215,12 +224,7 @@ mod tests {
 
     #[test]
     fn test_kill_with_invalid_signals() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -244,12 +248,7 @@ mod tests {
 
     #[test]
     fn test_kill_with_explicit_signal_flag() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -264,12 +263,7 @@ mod tests {
 
         for args in test_cases {
             // Start a new process for each test
-            let mut new_child = Command::new("ping")
-                .args(&["127.0.0.1", "-n", "1000"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .expect("Failed to start ping process");
+            let mut new_child = create_test_process();
 
             let new_pid = new_child.id();
             thread::sleep(Duration::from_millis(100));
@@ -291,12 +285,7 @@ mod tests {
 
     #[test]
     fn test_print_only_mode() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -307,8 +296,19 @@ mod tests {
 
         thread::sleep(Duration::from_millis(200));
 
-        // Process should still be running after -p
-        assert!(is_process_running(pid), "Process should still be running after -p flag");
+        // Process should still be running after -p (using try_wait for reliability)
+        match child.try_wait() {
+            Ok(None) => {
+                // Process is still running - this is expected for print-only mode
+                assert!(true, "Process correctly still running after -p flag");
+            },
+            Ok(Some(status)) => {
+                panic!("Process unexpectedly exited with status: {:?} after print-only mode", status);
+            },
+            Err(e) => {
+                panic!("Error checking process status: {}", e);
+            }
+        }
 
         // Clean up
         let _ = child.kill();
@@ -316,17 +316,12 @@ mod tests {
 
     #[test]
     fn test_print_only_with_process_name() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         thread::sleep(Duration::from_millis(100));
 
         // Test -p flag with process name
-        let result = winix::kill::execute(&["-p", "ping"]);
+        let result = winix::kill::execute(&["-p", "powershell"]);
         
         // Should succeed but not kill the process
         // Note: Will fail until process name lookup is implemented
@@ -338,12 +333,7 @@ mod tests {
 
     #[test]
     fn test_conflicting_signal_options() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -358,12 +348,7 @@ mod tests {
 
     #[test]
     fn test_queue_value_option() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -380,12 +365,7 @@ mod tests {
 
     #[test]
     fn test_end_of_options_marker() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -407,12 +387,7 @@ mod tests {
         let mut pids = Vec::new();
 
         for _ in 0..3 {
-            let child = Command::new("ping")
-                .args(&["127.0.0.1", "-n", "1000"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .expect("Failed to start ping process");
+            let child = create_test_process();
             
             pids.push(child.id().to_string());
             children.push(child);
@@ -439,12 +414,7 @@ mod tests {
 
     #[test]
     fn test_timeout_option() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -501,12 +471,7 @@ mod tests {
 
     #[test]
     fn test_combined_flags() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -523,12 +488,7 @@ mod tests {
 
     #[test]
     fn test_invalid_queue_value() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -543,12 +503,7 @@ mod tests {
 
     #[test]
     fn test_timeout_without_signal() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -571,12 +526,7 @@ mod tests {
 
     #[test]
     fn test_case_insensitive_signals() {
-        let mut child = Command::new("ping")
-            .args(&["127.0.0.1", "-n", "1000"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("Failed to start ping process");
+        let mut child = create_test_process();
 
         let _pid = child.id();
         thread::sleep(Duration::from_millis(100));
@@ -585,12 +535,7 @@ mod tests {
         let signals = vec!["-term", "-TERM", "-Term", "-kill", "-KILL", "-Kill"];
         
         for signal in signals {
-            let mut new_child = Command::new("ping")
-                .args(&["127.0.0.1", "-n", "1000"])
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .expect("Failed to start ping process");
+            let mut new_child = create_test_process();
 
             let new_pid = new_child.id();
             thread::sleep(Duration::from_millis(50));
@@ -609,10 +554,16 @@ mod tests {
     // Helper function to check if a process is running
     fn is_process_running(pid: u32) -> bool {
         unsafe {
-            let handle = OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid);
+            // Try with more limited permissions first
+            let mut handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
             if handle.is_null() {
-                return false;
+                // Fallback to standard query information
+                handle = OpenProcess(PROCESS_QUERY_INFORMATION, 0, pid);
+                if handle.is_null() {
+                    return false;
+                }
             }
+            
             let result = WaitForSingleObject(handle, 0);
             CloseHandle(handle);
             // WAIT_TIMEOUT = 0x102, means process is still running

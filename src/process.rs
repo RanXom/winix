@@ -117,4 +117,32 @@ pub fn spawn(
             thread_handle: pi.hThread,
         })
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_wide_null_basic() {
+        let wide = to_wide_null("hello").unwrap();
+        // Should be null-terminated
+        assert_eq!(wide[wide.len() - 1], 0);
+        // Should match UTF-16 encoding
+        assert_eq!(&wide[..5], &[104, 101, 108, 108, 111]);
+    }
+
+    #[test]
+    fn test_to_wide_null_error_on_null() {
+        // Should error if input contains a null
+        let result = to_wide_null("hel\0lo");
+        assert!(matches!(result, Err(ProcessError::NullTermination)));
+    }
+
+    #[test]
+    fn test_spawn_invalid_exe_path() {
+        // Should error for a clearly invalid executable path
+        let result = spawn("C:/not_a_real_exe.exe", &[], None);
+        assert!(result.is_err());
+    }
 } 

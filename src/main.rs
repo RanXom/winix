@@ -6,17 +6,19 @@ use std::io::{self, Write};
 mod cd;
 mod chmod;
 mod chown;
+mod disown;
 mod df;
 mod free;
 mod git;
+mod kill;
 mod powershell;
 mod ps;
 mod sensors;
+mod sudo;
 mod tui;
 mod uname;
 mod uptime;
-mod sudo;
-mod disown;
+
 
 fn main() {
     test_sudo();
@@ -72,20 +74,21 @@ fn show_splash_screen() {
     println!("{}", "Available Commands:".bold().white());
     println!(
         "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+        "cd".bold().yellow(),
         "chmod".bold().yellow(),
         "chown".bold().yellow(),
-        "uname".bold().yellow(),
-        "ps".bold().yellow(),
-        "sensors".bold().yellow(),
-        "free".bold().yellow(),
-        "uptime".bold().yellow(),
         "df".bold().yellow(),
-        "cd".bold().yellow(),
-        "pwd".bold().yellow(),
-        "ls".bold().yellow(),
-        "git".bold().yellow(),
-        "psh/powershell".bold().cyan(),
         "exit".bold().red()
+        "free".bold().yellow(),
+        "git".bold().yellow(),
+        "kill".bold().yellow(),
+        "ls".bold().yellow(),
+        "ps".bold().yellow(),
+        "psh/powershell".bold().cyan(),
+        "pwd".bold().yellow(),
+        "sensors".bold().yellow(),
+        "uptime".bold().yellow(),
+        "uname".bold().yellow(),
     );
     println!();
 }
@@ -221,6 +224,28 @@ fn command_loop() {
                     git::execute(&args);
                 }
             }
+            "kill" => {
+                if parts.len() < 2 {
+                    println!("{}", "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".red());
+                    println!();
+                    println!("{}", "Examples:".yellow());
+                    println!("  {}", "kill 1234".dimmed());
+                    println!("  {}", "kill -9 1234".dimmed());
+                    println!("  {}", "kill -TERM 1234".dimmed());
+                    println!("  {}", "kill -s KILL 1234".dimmed());
+                    println!("  {}", "kill -p 1234".dimmed());
+                    println!("  {}", "kill -a notepad".dimmed());
+                    println!("  {}", "kill --timeout 5000 KILL 1234".dimmed());
+                    println!("  {}", "kill -- -1234".dimmed());
+                } else {
+                    // Pass all arguments except the command itself
+                    let args: Vec<&str> = parts[1..].to_vec();
+                    match kill::execute(&args) {
+                        Ok(_) => {}
+                        Err(e) => println!("{}", format!("kill: {}", e).red()),
+                    }
+                }
+            }
             "psh" | "powershell" => {
                 if parts.len() == 1 {
                     // Show PowerShell help if no arguments
@@ -259,20 +284,21 @@ fn command_loop() {
                 println!("{}", "Available Commands:".bold().white());
                 println!(
                     "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
-                    "chmod <permissions> <file>".bold().yellow(),
-                    "chown <owner_name> <file>".bold().yellow(),
-                    "uname".bold().yellow(),
-                    "ps".bold().yellow(),
-                    "sensors".bold().yellow(),
-                    "free".bold().yellow(),
-                    "uptime".bold().yellow(),
+                    "cd".bold().yellow(),
+                    "chmod".bold().yellow(),
+                    "chown".bold().yellow(),
                     "df".bold().yellow(),
-                    "cd <directory>".bold().yellow(),
+                    "exit".bold().red()
+                    "free".bold().yellow(),
+                    "git".bold().yellow(),
+                    "kill".bold().yellow(),
+                    "ls".bold().yellow(),
+                    "ps".bold().yellow(),
+                    "psh/powershell".bold().cyan(),
                     "pwd".bold().yellow(),
-                    "ls [directory]".bold().yellow(),
-                    "git [command] [options]".bold().yellow(),
-                    "psh/powershell [command] [options]".bold().cyan(),
-                    "exit or quit".bold().red()
+                    "sensors".bold().yellow(),
+                    "uptime".bold().yellow(),
+                    "uname".bold().yellow(),
                 );
             }
             _ => {

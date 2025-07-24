@@ -228,15 +228,17 @@ fn command_loop() {
                 if parts.len() < 2 {
                     println!("{}", "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".red());
                     println!();
+                    println!("{}", "Supported Windows signals:".yellow());
+                    println!("  {}", "-2, -INT    Interrupt (Ctrl+C)".dimmed());
+                    println!("  {}", "-3, -QUIT   Quit (Ctrl+Break)".dimmed());
+                    println!("  {}", "-9, -KILL   Force terminate (default)".dimmed());
+                    println!("  {}", "-15, -TERM  Graceful terminate".dimmed());
+                    println!();
                     println!("{}", "Examples:".yellow());
                     println!("  {}", "kill 1234".dimmed());
-                    println!("  {}", "kill -9 1234".dimmed());
                     println!("  {}", "kill -TERM 1234".dimmed());
-                    println!("  {}", "kill -s KILL 1234".dimmed());
-                    println!("  {}", "kill -p 1234".dimmed());
+                    println!("  {}", "kill -9 1234".dimmed());
                     println!("  {}", "kill -a notepad".dimmed());
-                    println!("  {}", "kill --timeout 5000 KILL 1234".dimmed());
-                    println!("  {}", "kill -- -1234".dimmed());
                 } else {
                     // Pass all arguments except the command itself
                     let args: Vec<&str> = parts[1..].to_vec();

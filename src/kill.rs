@@ -1,13 +1,13 @@
 /*
 This file tries to mimic the behavior of the Unix `kill` command
-for Windows, allowing users to terminate processes by PID.
+for Windows, allowing users to terminate processes by PID or name.
 
 The Unix definition for 'kill' is:
 kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...
 We will follow this structure closely.
 
 Arguments breakdown:
-- -signal (e.g., -9, -TERM): Specify signal number or name //Windows does not use signals like Unix, but we can simulate this.
+- -signal: Specify signal number or name 
 - -s signal: Alternative signal specification  
 - -p: Print PID only, don't send signal
 - -q value: Send signal with additional data
@@ -25,9 +25,12 @@ Key things addressed:
     - Handling non-existent PIDs. (Like out of bounds values)
 3. Checking if process with specified name exists and is valid to be killed.
 4. Implementing all arguments supported by unix
+    - Support for reasonable signals like -2, -3, -9, -15 (INT, QUIT, KILL, TERM)
+    - Ensures -a tag is used with only names processes
 */
 
 use colored::*;
+use log::debug;
 
 #[derive(Debug, Clone)]
 pub struct KillOptions {
@@ -60,49 +63,59 @@ impl Default for KillOptions {
 
 pub fn execute(args: &[&str]) -> Result<(), String> {
     if args.is_empty() {
-        return Err("Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".to_string());
+        return Err(format!("{}",
+            "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...\n\
+            \n\
+            Supported signals on Windows:\n\
+            -2, -INT    Interrupt (Ctrl+C)\n\
+            -3, -QUIT   Quit (Ctrl+Break)\n\
+            -9, -KILL   Force terminate (default)\n\
+            -15, -TERM  Graceful terminate (Ctrl+C)\n\
+            \n\
+            Examples:\n\
+            kill 1234           # Force terminate process 1234\n\
+            kill -TERM 1234     # Graceful terminate\n\
+            kill -9 1234        # Force terminate\n\
+            kill -a notepad     # Kill all notepad processes"
+        ));
     }
 
     let options = parse_arguments(args)?;
     validate_options(&options)?;
-    
-    // TODO: Implement the actual kill logic here
-    // For now, just print what we parsed
-    println!("Parsed options: {:?}", options);
-    
+    debug!("Parsed options: {:?}", options);
+    handle_kill(&options)
+}
+
+// TODO: Implement these functions
+fn handle_kill(options: &KillOptions) -> Result<(), String> {
+    // Main kill logic will go here
     Ok(())
 }
 
 fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
     let mut options = KillOptions::default();
     let mut i = 0;
-    
     while i < args.len() {
         let arg = args[i];
-        
         // If we've seen --, everything else is a target
         if options.end_of_options {
             options.targets.push(arg.to_string());
             i += 1;
             continue;
         }
-        
         match arg {
             // End of options marker
             "--" => {
                 options.end_of_options = true;
             }
-            
             // Print PID only
             "-p" => {
                 options.print_only = true;
             }
-            
             // All processes flag
             "-a" => {
                 options.all_processes = true;
             }
-            
             // Explicit signal flag
             "-s" => {
                 i += 1;
@@ -111,7 +124,6 @@ fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
                 }
                 options.signal_explicit = Some(args[i].to_string());
             }
-            
             // Queue value flag
             "-q" => {
                 i += 1;
@@ -123,7 +135,6 @@ fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
                     Err(_) => return Err(format!("Invalid queue value: {}", args[i])),
                 }
             }
-            
             // Timeout option
             arg if arg.starts_with("--timeout") => {
                 if arg.contains('=') {
@@ -155,11 +166,9 @@ fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
                     options.timeout_signal = Some(args[i].to_string());
                 }
             }
-            
             // Signal arguments (start with -)
             arg if arg.starts_with('-') && arg.len() > 1 => {
                 let signal = &arg[1..]; // Remove the leading -
-                
                 // Check if it's a valid signal (number or name)
                 if signal.chars().all(|c| c.is_ascii_digit()) {
                     // Numeric signal
@@ -177,7 +186,6 @@ fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
                 options.targets.push(arg.to_string());
             }
         }
-        
         i += 1;
     }
     
@@ -195,6 +203,12 @@ fn validate_options(options: &KillOptions) -> Result<(), String> {
         return Err("Cannot specify signal with both -signal and -s options".to_string());
     }
     
+    // Validate signal if specified
+    let signal_to_check = options.signal.as_ref().or(options.signal_explicit.as_ref());
+    if let Some(signal) = signal_to_check {
+        signal_to_windows_method(signal)?; // This will return an error for unsupported signals
+    }
+    
     // -a flag only makes sense with process names, not PIDs
     if options.all_processes {
         for target in &options.targets {
@@ -209,22 +223,41 @@ fn validate_options(options: &KillOptions) -> Result<(), String> {
         return Err("--timeout option requires a signal".to_string());
     }
     
+    // Validate timeout signal if specified
+    if let Some(timeout_signal) = &options.timeout_signal {
+        signal_to_windows_method(timeout_signal)?;
+    }
+    
     Ok(())
 }
 
+// Helper function to check if a signal name is valid
+// Only supports signals that can be reasonably simulated on Windows
 fn is_valid_signal_name(signal: &str) -> bool {
-    // Common Unix signal names
     matches!(signal.to_uppercase().as_str(),
-        "HUP" | "INT" | "QUIT" | "ILL" | "TRAP" | "ABRT" | "BUS" | "FPE" |
-        "KILL" | "USR1" | "SEGV" | "USR2" | "PIPE" | "ALRM" | "TERM" |
-        "STKFLT" | "CHLD" | "CONT" | "STOP" | "TSTP" | "TTIN" | "TTOU" |
-        "URG" | "XCPU" | "XFSZ" | "VTALRM" | "PROF" | "WINCH" | "IO" |
-        "PWR" | "SYS"
+        // Termination signals
+        "TERM" | "KILL" | "INT" | "QUIT" |
+        // Numeric equivalents
+        "2" | "3" | "9" | "15"
     )
 }
 
-// TODO: Implement these functions
-fn handle_kill(options: &KillOptions) -> Result<(), String> {
-    // Main kill logic will go here
-    Ok(())
+// Map Unix signal to Windows termination method
+#[derive(Debug, Clone)]
+pub enum WindowsKillMethod {
+    ForceTerminate,    // SIGKILL (9) -> TerminateProcess
+    GracefulCtrlC,     // SIGTERM (15), SIGINT (2) -> Ctrl+C
+    GracefulCtrlBreak, // SIGQUIT (3) -> Ctrl+Break
+    WindowClose,       // For GUI applications
 }
+
+fn signal_to_windows_method(signal: &str) -> Result<WindowsKillMethod, String> {
+    match signal.to_uppercase().as_str() {
+        "KILL" | "9" => Ok(WindowsKillMethod::ForceTerminate),
+        "TERM" | "15" => Ok(WindowsKillMethod::GracefulCtrlC),
+        "INT" | "2" => Ok(WindowsKillMethod::GracefulCtrlC),
+        "QUIT" | "3" => Ok(WindowsKillMethod::GracefulCtrlBreak),
+        _ => Err(format!("Signal '{}' is not supported on Windows. Supported signals: TERM(15), INT(2), QUIT(3), KILL(9)", signal)),
+    }
+}
+

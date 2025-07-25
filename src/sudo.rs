@@ -1,6 +1,7 @@
 #[cfg(target_family = "unix")]
 use std::process::Command;
 
+#[allow(dead_code)]
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 

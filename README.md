@@ -65,7 +65,8 @@ cargo build --release
 
 ---
 
-## 🤝 How to Contribute
+## 🤝 How to Contribute - 
+### Check - [Discussions](https://github.com/0xsambit/winix/discussions) before going forward
 
 We welcome all contributions! Whether you're fixing bugs, adding features, improving documentation, or helping others, your input is valued.
 

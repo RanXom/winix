@@ -2,35 +2,28 @@ use colored::*;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-
 #[cfg(windows)]
 use winix::pipeline::execute_pipeline;
-
 #[cfg(windows)]
 use winix::{chmod, chown};
-
 use winix::{echo, touch};
 
 
 #[cfg(windows)]
+mod pipeline;
+mod cd;
+#[cfg(windows)]
 mod chmod;
 #[cfg(windows)]
 mod chown;
-#[cfg(windows)]
-mod pipeline;
-#[cfg(windows)]
-mod sudo;
-#[cfg(windows)]
 mod disown;
-
-
-mod cd;
 mod df;
 mod free;
 mod git;
 mod powershell;
 mod ps;
 mod sensors;
+mod sudo;
 mod tui;
 mod uname;
 mod uptime;

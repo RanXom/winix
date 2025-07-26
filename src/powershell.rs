@@ -33,13 +33,14 @@ pub fn is_powershell_available() -> bool {
 fn is_command_available(cmd: &str) -> bool {
     match Command::new(cmd)
         .arg("-Command")
-        .arg("$PSVersionTable.PSVersion")
+        .arg("Write-Output 'PowerShell Works'")
         .output()
     {
         Ok(output) => output.status.success(),
         Err(_) => false,
     }
 }
+
 
 /// Get the preferred PowerShell executable
 fn get_powershell_executable() -> &'static str {

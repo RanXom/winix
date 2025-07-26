@@ -254,31 +254,6 @@ fn command_loop() {
                     }
                 }
             }
-            "kill" => {
-                if parts.len() < 2 {
-                    println!("{}", "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".red());
-                    println!();
-                    println!("{}", "Supported Windows signals:".yellow());
-                    println!("  {}", "-2, -INT    Interrupt (Ctrl+C)".dimmed());
-                    println!("  {}", "-3, -QUIT   Quit (Ctrl+Break)".dimmed());
-                    println!("  {}", "-9, -KILL   Force terminate (default)".dimmed());
-                    println!("  {}", "-15, -TERM  Graceful terminate".dimmed());
-                    println!();
-                    println!("{}", "Examples:".yellow());
-                    println!("  {}", "kill 1234".dimmed());
-                    println!("  {}", "kill -TERM 1234".dimmed());
-                    println!("  {}", "kill -9 1234".dimmed());
-                    println!("  {}", "kill -a notepad".dimmed());
-                } else {
-                    // Pass all arguments except the command itself
-                    let args: Vec<&str> = parts[1..].to_vec();
-                    #[cfg(windows)]
-                    match kill::execute(&args) {
-                        Ok(_) => {}
-                        Err(e) => println!("{}", format!("kill: {}", e).red()),
-                    }
-                }
-            }
             "psh" | "powershell" => {
                 if parts.len() == 1 {
                     powershell::execute(&[]);

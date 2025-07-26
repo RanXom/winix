@@ -30,17 +30,19 @@ pub fn is_powershell_available() -> bool {
 }
 
 /// Check if a specific PowerShell executable is available
-fn is_command_available(cmd: &str) -> bool {
-    match Command::new(cmd)
-        .arg("-Command")
-        .arg("Write-Output 'PowerShell Works'")
-        .output()
-    {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
+pub fn is_command_available(cmd: &str) -> bool {
+    let try_version = Command::new(cmd).arg("--version").output();
+    match try_version {
+        Ok(output) if output.status.success() => true,
+        _ => {
+            let try_help = Command::new(cmd).arg("--help").output();
+            match try_help {
+                Ok(output) => output.status.success(),
+                Err(_) => false,
+            }
+        }
     }
 }
-
 
 /// Get the preferred PowerShell executable
 fn get_powershell_executable() -> &'static str {

@@ -179,6 +179,29 @@ fn command_loop() {
 
             "echo" => echo::run(&command_args),
             "touch" => touch::run(&command_args),
+
+
+            // "echo" => {
+            //     if !command_args.is_empty() {
+            //         println!("{}", command_args.join(" "));
+            //     } else {
+            //         println!(); // print a blank line if no arguments
+            //     }
+            // }
+        
+            // "touch" => {
+            //     for file in &command_args {
+            //         match std::fs::OpenOptions::new()
+            //             .create(true)
+            //             .write(true)
+            //             .append(true)
+            //             .open(file)
+            //         {
+            //             Ok(_) => {}
+            //             Err(e) => eprintln!("touch: cannot create file '{}': {}", file, e),
+            //         }
+            //     }
+            // }
             "uname" => uname::execute(),
             "ps" => ps::execute(),
             "sensors" => sensors::execute(),
@@ -325,3 +348,4 @@ fn ls_command(path: &str) -> std::io::Result<()> {
     }
     Ok(())
 }
+

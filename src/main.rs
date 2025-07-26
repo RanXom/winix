@@ -20,7 +20,6 @@ mod disown;
 mod df;
 mod free;
 mod git;
-#[cfg(windows)]
 mod kill;
 mod powershell;
 mod ps;

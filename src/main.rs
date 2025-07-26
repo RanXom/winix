@@ -20,6 +20,8 @@ mod disown;
 mod df;
 mod free;
 mod git;
+#[cfg(windows)]
+mod kill;
 mod powershell;
 mod ps;
 mod sensors;
@@ -202,18 +204,30 @@ fn command_loop() {
                     println!("{}", format!("ls: {}", e).red());
                 }
             }
-
-            "git" => {
-                if parts.len() == 1 {
-                    git::execute(&[]);
-                } else if parts.len() == 2 && parts[1] == "--interactive" {
-                    git::interactive_mode();
+            "kill" => {
+                if parts.len() < 2 {
+                    println!("{}", "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".red());
+                    println!();
+                    println!("{}", "Supported Windows signals:".yellow());
+                    println!("  {}", "-2, -INT    Interrupt (Ctrl+C)".dimmed());
+                    println!("  {}", "-3, -QUIT   Quit (Ctrl+Break)".dimmed());
+                    println!("  {}", "-9, -KILL   Force terminate (default)".dimmed());
+                    println!("  {}", "-15, -TERM  Graceful terminate".dimmed());
+                    println!();
+                    println!("{}", "Examples:".yellow());
+                    println!("  {}", "kill 1234".dimmed());
+                    println!("  {}", "kill -TERM 1234".dimmed());
+                    println!("  {}", "kill -9 1234".dimmed());
+                    println!("  {}", "kill -a notepad".dimmed());
                 } else {
-                    let args: Vec<&str> = parts[1..].iter().copied().collect();
-                    git::execute(&args);
+                    // Pass all arguments except the command itself
+                    let args: Vec<&str> = parts[1..].to_vec();
+                    match kill::execute(&args) {
+                        Ok(_) => {}
+                        Err(e) => println!("{}", format!("kill: {}", e).red()),
+                    }
                 }
             }
-
             "psh" | "powershell" => {
                 if parts.len() == 1 {
                     powershell::execute(&[]);
@@ -227,7 +241,24 @@ fn command_loop() {
 
             "help" => {
                 println!("{}", "Available Commands:".bold().white());
-                // ...
+                println!(
+                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
+                    "cd".bold().yellow(),
+                    "chmod".bold().yellow(),
+                    "chown".bold().yellow(),
+                    "df".bold().yellow(),
+                    "exit".bold().red(),
+                    "free".bold().yellow(),
+                    "git".bold().yellow(),
+                    "kill".bold().yellow(),
+                    "ls".bold().yellow(),
+                    "ps".bold().yellow(),
+                    "psh/powershell".bold().cyan(),
+                    "pwd".bold().yellow(),
+                    "sensors".bold().yellow(),
+                    "uptime".bold().yellow(),
+                    "uname".bold().yellow(),
+                );
             }
 
             _ => {
@@ -237,6 +268,7 @@ fn command_loop() {
         }
     }
 }
+
 
 
 // --- CD, PWD, and LS commands ---

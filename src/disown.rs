@@ -1,6 +1,5 @@
 use std::env;
-use std::process::Command;
-use std::process::Stdio;
+use std::process::{Command, Stdio};
 
 #[allow(dead_code)]
 fn main() {
@@ -10,7 +9,8 @@ fn main() {
         std::process::exit(1);
     }
 
-    #[cfg(target_os = "macos")]
+    // For Unix-based systems (macOS, Linux)
+    #[cfg(unix)]
     {
         let mut command = Command::new("nohup");
         command
@@ -21,33 +21,28 @@ fn main() {
             .stderr(Stdio::null());
 
         match command.spawn() {
-            Ok(_) => {
-                println!("Process disowned (macOS)");
-            }
-            Err(e) => {
-                eprintln!("Failed to disown process: {}", e);
-            }
+            Ok(_) => println!("Process disowned (Unix-based OS)"),
+            Err(e) => eprintln!("Failed to disown process: {}", e),
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
+    // For Windows
+    #[cfg(windows)]
     {
-        let mut command = Command::new("nohup");
+        use std::os::windows::process::CommandExt;
+        const DETACHED_PROCESS: u32 = 0x00000008;
+
+        let mut command = Command::new(&args[0]);
         command
-            .arg(&args[0])
             .args(&args[1..])
+            .creation_flags(DETACHED_PROCESS)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
         match command.spawn() {
-            Ok(_) => {
-                println!("Process disowned (non-macOS)");
-            }
-            Err(e) => {
-                eprintln!("Failed to disown process: {}", e);
-            }
+            Ok(_) => println!("Process disowned (Windows)"),
+            Err(e) => eprintln!("Failed to disown process: {}", e),
         }
     }
 }
-

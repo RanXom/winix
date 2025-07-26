@@ -20,23 +20,38 @@ fn main() {
         std::process::exit(status.code().unwrap_or(1));
     }
 
+    #[cfg(target_os = "linux")]
+    {
+        let status = Command::new("sudo")
+            .args(&args)
+            .status()
+            .expect("Failed to execute sudo command");
+
+        std::process::exit(status.code().unwrap_or(1));
+    }
+
     #[cfg(target_family = "windows")]
     {
-        use std::os::windows::process::CommandExt;
         use std::process::Command;
 
-        const SEE_MASK_NO_CONSOLE: u32 = 0x00008000;
+        let command = &args[0];
+        let cmd_args = &args[1..];
 
-        let mut full_command = String::new();
-        for arg in &args {
-            full_command.push_str(&format!("{} ", arg));
-        }
+        let joined_args = cmd_args
+            .iter()
+            .map(|s| format!("'{}'", s))
+            .collect::<Vec<String>>()
+            .join(",");
 
-        let _ = Command::new("cmd")
-            .arg("/C")
-            .arg("powershell Start-Process cmd -Verb runAs")
-            .creation_flags(SEE_MASK_NO_CONSOLE)
+        let status = Command::new("powershell")
+            .arg("-Command")
+            .arg(format!(
+                "Start-Process '{}' -ArgumentList {} -Verb runAs",
+                command, joined_args
+            ))
             .status()
             .expect("Failed to launch command as admin");
+
+        std::process::exit(status.code().unwrap_or(1));
     }
 }

@@ -20,7 +20,9 @@ mod disown;
 mod df;
 mod free;
 mod git;
+#[cfg(windows)]
 mod kill;
+
 mod powershell;
 mod ps;
 mod sensors;
@@ -222,6 +224,7 @@ fn command_loop() {
                 } else {
                     // Pass all arguments except the command itself
                     let args: Vec<&str> = parts[1..].to_vec();
+                    #[cfg(windows)]
                     match kill::execute(&args) {
                         Ok(_) => {}
                         Err(e) => println!("{}", format!("kill: {}", e).red()),
@@ -246,6 +249,7 @@ fn command_loop() {
                 } else {
                     // Pass all arguments except the command itself
                     let args: Vec<&str> = parts[1..].to_vec();
+                    #[cfg(windows)]
                     match kill::execute(&args) {
                         Ok(_) => {}
                         Err(e) => println!("{}", format!("kill: {}", e).red()),

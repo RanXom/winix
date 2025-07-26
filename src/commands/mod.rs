@@ -39,7 +39,8 @@ pub mod tui;
 pub mod uname;
 #[cfg(target_os = "windows")]
 pub mod uptime;
-
+#[cfg(windows)]
+pub mod kill;
 
 // src/command/mod.rs
 pub fn dummy() {

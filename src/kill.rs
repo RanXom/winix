@@ -28,6 +28,7 @@ Key things addressed:
     - Support for reasonable signals like -2, -3, -9, -15 (INT, QUIT, KILL, TERM)
     - Ensures -a tag is used with only names processes
 */
+#![cfg(windows)]
 
 use colored::*;
 use std::thread;

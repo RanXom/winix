@@ -40,6 +40,7 @@ mod rm;
 fn main() {
 
     let args: Vec<String> = env::args().collect();
+    
     if args.len() > 1 && args[1] == "--cli" {
         // Run original command-line mode (optional fallback)
         show_splash_screen();
@@ -161,7 +162,7 @@ fn command_loop() {
                 );
                 break;
             }
-
+         
             #[cfg(windows)]
             "chmod" => {
                 if parts.len() < 2 {

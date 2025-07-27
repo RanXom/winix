@@ -4,3 +4,4 @@ pub mod kill;
 
 pub mod echo;
 pub mod touch;
+pub mod ansi;

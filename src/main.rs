@@ -7,7 +7,8 @@ use winix::pipeline::execute_pipeline;
 #[cfg(windows)]
 use winix::{chmod, chown};
 use winix::{echo, touch};
-
+use crate::cat::cat;
+use std::process;
 
 #[cfg(windows)]
 mod pipeline;
@@ -30,11 +31,15 @@ mod sudo;
 mod tui;
 mod uname;
 mod uptime;
+mod cat;
+mod rm;
+
+
 
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
 
+    let args: Vec<String> = env::args().collect();
     if args.len() > 1 && args[1] == "--cli" {
         // Run original command-line mode (optional fallback)
         show_splash_screen();
@@ -289,7 +294,21 @@ fn command_loop() {
                     powershell::execute(&args);
                 }
             }
-
+           
+            "rm" => {
+                let args: Vec<String> = env::args().collect();
+                if args.len() < 3 {
+                     eprintln!("Please provide a file to remove");
+                 return;
+             }
+ 
+             for file in &args[2..] {
+                 match fs::remove_file(file) {
+                     Ok(_) => println!("Deleted {}", file),
+                     Err(e) => eprintln!("Failed to delete {}: {}", file, e),
+                 }
+             }
+         }
             "help" => {
                 println!("{}", "Available Commands:".bold().white());
                 println!(
@@ -349,3 +368,10 @@ fn ls_command(path: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+fn rm(files: Vec<&str>) -> Result<(), std::io::Error> {
+    for file in files {
+        std::fs::remove_file(file)?;
+        println!("Deleted: {}", file);
+    }
+    Ok(())
+}

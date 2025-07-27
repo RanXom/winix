@@ -2,28 +2,15 @@ use colored::*;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-#[cfg(windows)]
-use winix::pipeline::execute_pipeline;
-#[cfg(windows)]
-use winix::{chmod, chown};
 use winix::{echo, touch};
-use crate::cat::cat;
-use std::process;
 
-#[cfg(windows)]
-mod pipeline;
 mod cd;
-#[cfg(windows)]
-mod chmod;
-#[cfg(windows)]
-mod chown;
 mod disown;
 mod df;
 mod free;
 mod git;
 #[cfg(windows)]
 mod kill;
-
 mod powershell;
 mod ps;
 mod sensors;
@@ -34,11 +21,7 @@ mod uptime;
 mod cat;
 mod rm;
 
-
-
-
 fn main() {
-
     let args: Vec<String> = env::args().collect();
     
     if args.len() > 1 && args[1] == "--cli" {
@@ -168,8 +151,7 @@ fn command_loop() {
                 if parts.len() < 2 {
                     println!("{}", "Usage: chmod <mode> <file>".red());
                 } else {
-                    let args: Vec<&str> = parts[1..].iter().copied().collect();
-                    chmod::execute(&args);
+                    eprintln!("chmod command is currently unavailable.");
                 }
             }
 
@@ -178,8 +160,7 @@ fn command_loop() {
                 if parts.len() < 3 {
                     println!("{}", "Usage: chown <owner>:<group> <file>".red());
                 } else {
-                    let args: Vec<&str> = parts[1..].iter().copied().collect();
-                    chown::execute(&args);
+                    eprintln!("chown command is currently unavailable.");
                 }
             }
 

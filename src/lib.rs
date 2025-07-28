@@ -7,3 +7,4 @@ pub mod touch;
 pub mod ansi;
 pub mod cat;
 pub mod rm;
+pub mod input;

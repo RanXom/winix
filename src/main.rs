@@ -9,6 +9,9 @@ use winix::{chmod, chown};
 use winix::{echo, touch};
 use crate::cat::cat;
 use std::process;
+use input::LineEditor;
+use rustyline::error::ReadlineError;
+use rustyline::{Editor, Config, DefaultEditor};
 
 #[cfg(windows)]
 mod pipeline;
@@ -33,14 +36,49 @@ mod uname;
 mod uptime;
 mod cat;
 mod rm;
-
-
+mod input;
 
 
 fn main() {
 
     let args: Vec<String> = env::args().collect();
+    let mut editor = input::LineEditor::new();
+        // Start the REPL loop
+        loop {
+            // Show the prompt and read input
+            let readline = editor.read_line();
     
+            match readline {
+                Ok(line) => {
+                    // Save input to history
+                    editor.add_history_entry(line.as_str());
+    
+                    // Exit condition
+                    if line.trim() == "exit" {
+                        println!("Exiting shell.");
+                        break;
+                    }
+    
+                    // Process the input (for now, just print it)
+                    println!("You entered: {}", line);
+                }
+                Err(ReadlineError::Interrupted) => {
+                    // Handle Ctrl+C
+                    println!("^C");
+                    break;
+                }
+                Err(ReadlineError::Eof) => {
+                    // Handle Ctrl+D
+                    println!("^D");
+                    break;
+                }
+                Err(err) => {
+                    println!("Error: {:?}", err);
+                    break;
+                }
+            }
+        }
+
     if args.len() > 1 && args[1] == "--cli" {
         // Run original command-line mode (optional fallback)
         show_splash_screen();

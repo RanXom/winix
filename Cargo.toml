@@ -13,6 +13,7 @@ sysinfo = "0.35.1"
 dirs = "5.0"
 filetime = "0.2"
 regex = "1"
+rustyline = "13.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = [

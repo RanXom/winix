@@ -1,6 +1,6 @@
 use std::fs::{File, OpenOptions};
-use std::io::Write;
 use std::path::Path;
+use std::io::Write;
 
 #[cfg(unix)]
 use filetime::{FileTime, set_file_times};

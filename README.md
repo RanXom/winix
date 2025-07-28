@@ -33,8 +33,11 @@ Winix is a cross-platform command-line application designed to bridge the gap be
 
 - **Native Windows Integration:** Direct Windows API integration, no WSL required.
 - **High Performance:** Rust-based, optimized for speed and low resource usage.
+- **Async/Await Support:** Modern async programming with Tokio runtime for efficient I/O operations.
+- **Stream Processing:** Real-time data processing with Rust's Stream trait for memory-efficient operations.
 - **User Experience:** Colorized output, consistent CLI, Windows-compatible paths.
-- **Comprehensive Command Suite:** Includes `chmod`, `chown`, `uname`, `ps`, and more.
+- **Comprehensive Command Suite:** Includes `chmod`, `chown`, `uname`, `ps`, `cat`, `grep`, `head`, `tail`, and more.
+- **Command Pipelines:** Chain multiple commands together for complex data processing workflows.
 - **Extensible Architecture:** Easily add new commands and features.
 
 ---
@@ -44,6 +47,11 @@ Winix is a cross-platform command-line application designed to bridge the gap be
 ```text
 src/
 ├── main.rs         # Application entry point and CLI interface
+├── cat.rs          # File concatenation with async streams
+├── grep.rs         # Pattern matching with async processing
+├── head.rs         # First N lines with async streams
+├── tail.rs         # Last N lines with async processing
+├── pipeline.rs     # Async command pipeline system
 ├── chmod.rs        # File permission management
 ├── chown.rs        # File ownership operations
 ├── uname.rs        # System information utilities
@@ -61,6 +69,29 @@ src/
 git clone https://github.com/0xsambit/winix.git
 cd winix
 cargo build --release
+```
+
+### Using Async Commands
+
+Winix now supports async/await for high-performance file operations:
+
+```rust
+// Async file concatenation
+let result = cat_async_to_string(vec!["file1.txt", "file2.txt"]).await?;
+
+// Async pattern matching
+let matches = grep_async_to_string("pattern", vec!["file.txt"]).await?;
+
+// Async head/tail operations
+let first_lines = head_async_to_string(vec!["file.txt"], 10).await?;
+let last_lines = tail_async_to_string(vec!["file.txt"], 10).await?;
+
+// Command pipelines
+let pipeline = CatGrepPipeline::new(
+    vec!["file.txt".to_string()],
+    "pattern".to_string(),
+);
+let result = execute_pipeline(pipeline).await?;
 ```
 
 ---
@@ -102,6 +133,7 @@ We welcome all contributions! Whether you're fixing bugs, adding features, impro
 - Write clear, concise, and well-documented code.
 - Add tests for new features.
 - Keep external dependencies minimal.
+- For async features, use Tokio runtime and follow async/await best practices.
 
 ### Issue Reporting
 - Firstly, use the [Github Discussions](https://github.com/0xsambit/winix/discussions) to discuss which issues to work on and talk about the features or any questions about the project. Everything related to the project has to be first address in the discussions under appropriate category, only after then issues will be assigned. 
@@ -189,7 +221,8 @@ Everyone is welcome, and no question is too basic. We want to help you grow as a
 
 ## 🛣️ Roadmap
 
-- **Extended Command Set:** More Unix utilities.
+- **Extended Command Set:** More Unix utilities with async support.
+- **Advanced Stream Processing:** Real-time data transformation pipelines.
 - **Configuration Management:** User-customizable behavior.
 - **Plugin Architecture:** Third-party extensions.
 - **Cross-Platform Support:** Linux and macOS expansion.

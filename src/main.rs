@@ -2,10 +2,6 @@ use colored::*;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
-#[cfg(windows)]
-use winix::pipeline::execute_pipeline;
-#[cfg(windows)]
-use winix::{chmod, chown};
 use winix::{echo, touch};
 use crate::cat::cat;
 use std::process;
@@ -13,20 +9,14 @@ use input::LineEditor;
 use rustyline::error::ReadlineError;
 use rustyline::{Editor, Config, DefaultEditor};
 
-#[cfg(windows)]
-mod pipeline;
+
 mod cd;
-#[cfg(windows)]
-mod chmod;
-#[cfg(windows)]
-mod chown;
 mod disown;
 mod df;
 mod free;
 mod git;
 #[cfg(windows)]
 mod kill;
-
 mod powershell;
 mod ps;
 mod sensors;
@@ -40,7 +30,6 @@ mod input;
 
 
 fn main() {
-
     let args: Vec<String> = env::args().collect();
     let mut editor = input::LineEditor::new();
         // Start the REPL loop
@@ -206,8 +195,7 @@ fn command_loop() {
                 if parts.len() < 2 {
                     println!("{}", "Usage: chmod <mode> <file>".red());
                 } else {
-                    let args: Vec<&str> = parts[1..].iter().copied().collect();
-                    chmod::execute(&args);
+                    eprintln!("chmod command is currently unavailable.");
                 }
             }
 
@@ -216,8 +204,7 @@ fn command_loop() {
                 if parts.len() < 3 {
                     println!("{}", "Usage: chown <owner>:<group> <file>".red());
                 } else {
-                    let args: Vec<&str> = parts[1..].iter().copied().collect();
-                    chown::execute(&args);
+                    eprintln!("chown command is currently unavailable.");
                 }
             }
 
@@ -271,31 +258,6 @@ fn command_loop() {
                 let dir = if parts.len() > 1 { parts[1] } else { "." };
                 if let Err(e) = ls_command(dir) {
                     println!("{}", format!("ls: {}", e).red());
-                }
-            }
-            "kill" => {
-                if parts.len() < 2 {
-                    println!("{}", "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".red());
-                    println!();
-                    println!("{}", "Supported Windows signals:".yellow());
-                    println!("  {}", "-2, -INT    Interrupt (Ctrl+C)".dimmed());
-                    println!("  {}", "-3, -QUIT   Quit (Ctrl+Break)".dimmed());
-                    println!("  {}", "-9, -KILL   Force terminate (default)".dimmed());
-                    println!("  {}", "-15, -TERM  Graceful terminate".dimmed());
-                    println!();
-                    println!("{}", "Examples:".yellow());
-                    println!("  {}", "kill 1234".dimmed());
-                    println!("  {}", "kill -TERM 1234".dimmed());
-                    println!("  {}", "kill -9 1234".dimmed());
-                    println!("  {}", "kill -a notepad".dimmed());
-                } else {
-                    // Pass all arguments except the command itself
-                    let args: Vec<&str> = parts[1..].to_vec();
-                    #[cfg(windows)]
-                    match kill::execute(&args) {
-                        Ok(_) => {}
-                        Err(e) => println!("{}", format!("kill: {}", e).red()),
-                    }
                 }
             }
             "kill" => {

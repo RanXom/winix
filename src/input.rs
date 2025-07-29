@@ -1,4 +1,4 @@
-use rustyline::completion::{Completer, Candidate, Pair};
+use rustyline::completion::{Completer,Pair};
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use rustyline::validate::Validator;
@@ -52,11 +52,9 @@ impl LineEditor {
     }
 
     pub fn add_history_entry(&mut self, line: &str) {
-        self.rl.add_history_entry(line);
+        if let Err(e) = self.rl.add_history_entry(line) {
+            eprintln!("Failed to add history entry: {}", e);
+        }
         self.rl.save_history(".history.txt").ok(); // Optional: save history
-    }
-
-    pub fn feed_input(&self, chars: Vec<char>) -> String {
-        chars.iter().collect()
     }
 }

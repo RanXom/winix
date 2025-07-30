@@ -6,6 +6,7 @@ pub mod ansi;
 pub mod cat;
 pub mod rm;
 pub mod input;
+#[cfg(windows)]
 pub mod chmod;
 pub mod chown;
 pub mod disown;
@@ -31,3 +32,4 @@ mod tests {
         assert_eq!(1 + 1, 2);
     }
 }
+

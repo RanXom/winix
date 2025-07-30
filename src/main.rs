@@ -5,6 +5,8 @@ use std::io::{self, Write};
 use winix::{echo, touch};
 use rustyline::error::ReadlineError;
 
+use crate::cat::cat;
+use std::process;
 
 mod cd;
 mod disown;
@@ -23,6 +25,9 @@ mod uptime;
 mod cat;
 mod rm;
 mod input;
+#[cfg(windows)]
+mod chmod;
+
 
 
 fn main() {
@@ -64,6 +69,9 @@ fn main() {
             }
         }
 
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
     if args.len() > 1 && args[1] == "--cli" {
         // Run original command-line mode (optional fallback)
         show_splash_screen();
@@ -265,7 +273,6 @@ fn command_loop() {
     }
 }
 
->>>>>>> Stashed changes
             "psh" | "powershell" => {
                 if parts.len() == 1 {
                     powershell::execute(&[]);
@@ -348,4 +355,5 @@ fn ls_command(path: &str) -> std::io::Result<()> {
         }
     }
     Ok(())
+}
 }

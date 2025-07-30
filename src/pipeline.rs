@@ -56,28 +56,27 @@ impl AsyncCommand for CatGrepPipeline {
         use crate::cat::cat_async_to_string;
         use crate::grep::grep_async_to_string;
 
-        let files = self.files.clone();
+        let files: Vec<String> = self.files.clone();
         let pattern = self.pattern.clone();
 
         Box::pin(async move {
-            // Step 1: Run `cat`
+            // Step 1: Run cat
             let cat_output = cat_async_to_string(files).await?;
 
-            // Step 2: Write output to temp file
+            // Step 2: Write to temp file
             let temp_file = "temp_pipeline.txt";
             tokio::fs::write(temp_file, &cat_output).await?;
 
-            // Step 3: Run `grep`
+            // Step 3: Run grep
             let result = grep_async_to_string(&pattern, vec![temp_file.to_string()]).await;
 
-            // Step 4: Clean up
+            // Step 4: Cleanup
             let _ = tokio::fs::remove_file(temp_file).await;
+
             result
-        
         })
     }
 }
-
 
 
 // Example: Cat -> Head pipeline

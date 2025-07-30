@@ -9,12 +9,14 @@ pub fn rm<S: AsRef<Path>>(files: Vec<S>) -> io::Result<()> {
         if path.exists() {
             if path.is_file() {
                 fs::remove_file(path)?;
+                println!("Removed file: {}", path.display());
             } else {
-                return Err(io::Error::new(io::ErrorKind::Other, format!("'{}' is not a file", path.display())));
+                eprintln!("Warning: '{}' is not a file", path.display());
             }
         } else {
-            return Err(io::Error::new(io::ErrorKind::NotFound, format!("File '{}' not found", path.display())));
+            eprintln!("Warning: File '{}' not found", path.display());
         }
     }
     Ok(())
 }
+

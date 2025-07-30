@@ -1,12 +1,10 @@
 use colored::*;
 use std::env;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self};
 use winix::{echo, touch};
 use rustyline::error::ReadlineError;
-
-use crate::cat::cat;
-use std::process;
+use rm::rm;
 
 mod cd;
 mod disown;
@@ -28,75 +26,160 @@ mod input;
 #[cfg(windows)]
 mod chmod;
 
-
-
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut editor = input::LineEditor::new();
-        // Start the REPL loop
-        loop {
-            // Show the prompt and read input
-            let readline = editor.read_line();
-    
-            match readline {
-                Ok(line) => {
-                    // Save input to history
-                    editor.add_history_entry(line.as_str());
-    
-                    // Exit condition
-                    if line.trim() == "exit" {
-                        println!("Exiting shell.");
-                        break;
-                    }
-    
-                    // Process the input (for now, just print it)
-                    println!("You entered: {}", line);
-                }
-                Err(ReadlineError::Interrupted) => {
-                    // Handle Ctrl+C
-                    println!("^C");
-                    break;
-                }
-                Err(ReadlineError::Eof) => {
-                    // Handle Ctrl+D
-                    println!("^D");
-                    break;
-                }
-                Err(err) => {
-                    println!("Error: {:?}", err);
-                    break;
-                }
-            }
-        }
-
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
+    if args.contains(&"--interactive".to_string()) {
+        git::interactive_mode();
+    }
+    let _ = rm(vec!["test.txt"]).expect("Failed to remove file");
     if args.len() > 1 && args[1] == "--cli" {
-        // Run original command-line mode (optional fallback)
-        show_splash_screen();
-        command_loop();
+        run_cli();
     } else {
-        // Run TUI mode by default
         if let Err(err) = tui::run_tui() {
             eprintln!("Error running TUI: {}", err);
             eprintln!("Falling back to CLI mode...");
-            show_splash_screen();
-            command_loop();
+            run_cli();
         }
     }
 }
+
+fn run_cli() {
+    let mut editor = input::LineEditor::new();
+    show_splash_screen();
+
+    loop {
+        let readline = editor.read_line();
+        match readline {
+            Ok(line) => {
+                editor.add_history_entry(line.as_str());
+
+                if line.trim() == "exit" || line.trim() == "quit" {
+                    println!("{}", "Goodbye!".bold().blue());
+                    println!(
+                        "{}{}",
+                        "Want to contribute? Check out: ".bold().white(),
+                        "https://github.com/0xsambit/winix".bold().green()
+                    );
+                    break;
+                }
+
+                handle_command(&line);
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("^C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("^D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
+        }
+    }
+}
+
+fn handle_command(line: &str) {
+    let parts: Vec<&str> = line.trim().split_whitespace().collect();
+    if parts.is_empty() {
+        return;
+    }
+
+    let command = parts[0].to_lowercase();
+    let args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+
+    match command.as_str() {
+        "cd" => {
+            if args.is_empty() {
+                println!("{}", "Usage: cd <directory>".red());
+            } else if let Err(e) = cd_command(&args[0]) {
+                println!("{}", format!("cd: {}", e).red());
+            }
+        }
+
+        "pwd" => {
+            if let Err(e) = pwd_command() {
+                println!("{}", format!("pwd: {}", e).red());
+            }
+        }
+
+        "ls" => {
+            let dir = if args.is_empty() { "." } else { &args[0] };
+            if let Err(e) = ls_command(dir) {
+                println!("{}", format!("ls: {}", e).red());
+            }
+        }
+
+        "echo" => echo::run(&args),
+        "touch" => touch::run(&args),
+        "uname" => uname::execute(),
+        "ps" => ps::execute(),
+        "sensors" => sensors::execute(),
+        "free" => free::execute(),
+        "uptime" => uptime::execute(),
+        "df" => df::execute(),
+
+        #[cfg(windows)]
+        "kill" => {
+            if args.is_empty() {
+                println!("{}", "Usage: kill <pid|name> [options]".red());
+            } else if let Err(e) = kill::execute(&args.iter().map(String::as_str).collect::<Vec<_>>()) {
+                println!("{}", format!("kill: {}", e).red());
+            }
+        }
+
+        #[cfg(windows)]
+        "chmod" | "chown" => {
+            eprintln!("{} command is currently unavailable.", command);
+        }
+
+        "rm" => {
+            if args.is_empty() {
+                println!("{}", "Usage: rm <file1> [file2] ...".red());
+            } else {
+                for file in &args {
+                    match fs::remove_file(file) {
+                        Ok(_) => println!("Deleted {}", file),
+                        Err(e) => eprintln!("Failed to delete {}: {}", file, e),
+                    }
+                }
+            }
+        }
+        "git" => {
+        let git_args = &["status"]; // Replace with real input
+        git::execute(git_args);
+    }
+        "psh" | "powershell" => {
+            if args.get(0).map(String::as_str) == Some("--interactive") {
+                powershell::interactive_mode();
+            } else {
+                powershell::execute(&args.iter().map(String::as_str).collect::<Vec<_>>());
+            }
+        }
+
+        "help" => {
+            show_splash_screen();
+        }
+
+        _ => {
+            println!("{}", format!("Unknown command: '{}'", command).red());
+            println!("{}", "Type 'help' for available commands".dimmed());
+        }
+    }
+}
+
 fn show_splash_screen() {
     println!(
         "{}",
-        "██     ██ ██ ███    ██ ██ ██   ██ 
-██     ██ ██ ████   ██ ██  ██ ██  
-██  █  ██ ██ ██ ██  ██ ██   ███   
-██ ███ ██ ██ ██  ██ ██ ██  ██ ██  
- ███ ███  ██ ██   ████ ██ ██   ██ 
-                                  
-                                  "
+        r#"██     ██ ██ ███    ██ ██ ██   ██
+██     ██ ██ ████   ██ ██  ██ ██
+██  █  ██ ██ ██ ██  ██ ██   ███
+██ ███ ██ ██ ██  ██ ██ ██  ██ ██
+ ███ ███  ██ ██   ████ ██ ██   ██"#.bold()
     );
+
     println!(
         "{}",
         "-----------Your Most Useful Linux Commands directly on Your Windows without WSL or a Linux Distro-------------"
@@ -106,7 +189,7 @@ fn show_splash_screen() {
     println!();
     println!(
         "{}",
-        "� RECOMMENDED: Launch the beautiful TUI interface with: winix --tui"
+        "💡 RECOMMENDED: Launch the beautiful TUI interface with: winix --tui"
             .bold()
             .green()
     );
@@ -139,210 +222,18 @@ fn show_splash_screen() {
     println!();
 }
 
-fn command_loop() {
-    let mut cached_git_info = String::new();
-    let mut last_dir = String::new();
-    let mut git_check_counter = 0;
-
-    loop {
-        let cwd = env::current_dir().unwrap_or_else(|_| "?".into());
-        let current_dir = cwd.display().to_string();
-
-        if current_dir != last_dir || git_check_counter % 10 == 0 {
-            cached_git_info = if git::is_git_repo() {
-                if let Some(branch) = git::get_current_branch() {
-                    format!(" ({})", branch.magenta())
-                } else {
-                    " (git)".dimmed().to_string()
-                }
-            } else {
-                String::new()
-            };
-            last_dir = current_dir.clone();
-        }
-        git_check_counter += 1;
-
-        print!(
-            "{} {}{}",
-            "WX".bold().white(),
-            current_dir.white(),
-            cached_git_info
-        );
-        print!("{}", "> ".bold().green());
-        io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-
-        let input = input.trim();
-        if input.is_empty() {
-            continue;
-        }
-
-        let parts: Vec<&str> = input.split_whitespace().collect();
-        let command = parts[0].to_lowercase();
-        let command_args: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
-
-        match command.as_str() {
-            "exit" | "quit" => {
-                println!("{}", "Goodbye!".bold().blue());
-                println!(
-                    "{}{}",
-                    "Want to contribute? Check out: ".bold().white(),
-                    "https://github.com/0xsambit/winix".bold().green()
-                );
-                break;
-            }
-         
-            #[cfg(windows)]
-            "chmod" => {
-                if parts.len() < 2 {
-                    println!("{}", "Usage: chmod <mode> <file>".red());
-                } else {
-                    eprintln!("chmod command is currently unavailable.");
-                }
-            }
-
-            #[cfg(windows)]
-            "chown" => {
-                if parts.len() < 3 {
-                    println!("{}", "Usage: chown <owner>:<group> <file>".red());
-                } else {
-                    eprintln!("chown command is currently unavailable.");
-                }
-            }
-
-            "echo" => echo::run(&command_args),
-            "touch" => touch::run(&command_args),
-            "uname" => uname::execute(),
-            "ps" => ps::execute(),
-            "sensors" => sensors::execute(),
-            "free" => free::execute(),
-            "uptime" => uptime::execute(),
-            "df" => df::execute(),
-
-            "cd" => {
-                if parts.len() < 2 {
-                    println!("{}", "Usage: cd <directory>".red());
-                } else if let Err(e) = cd_command(parts[1]) {
-                    println!("{}", format!("cd: {}", e).red());
-                }
-            }
-
-            "pwd" => {
-                if let Err(e) = pwd_command() {
-                    println!("{}", format!("pwd: {}", e).red());
-                }
-            }
-
-            "ls" => {
-                let dir = if parts.len() > 1 { parts[1] } else { "." };
-                if let Err(e) = ls_command(dir) {
-                    println!("{}", format!("ls: {}", e).red());
-                }
-            }
-         "kill" => {
-    if parts.len() < 2 {
-        println!("{}", "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".red());
-        println!();
-        println!("{}", "Supported Windows signals:".yellow());
-        println!("  {}", "-2, -INT    Interrupt (Ctrl+C)".dimmed());
-        println!("  {}", "-3, -QUIT   Quit (Ctrl+Break)".dimmed());
-        println!("  {}", "-9, -KILL   Force terminate (default)".dimmed());
-        println!("  {}", "-15, -TERM  Graceful terminate".dimmed());
-        println!();
-        println!("{}", "Examples:".yellow());
-        println!("  {}", "kill 1234".dimmed());
-        println!("  {}", "kill -TERM 1234".dimmed());
-        println!("  {}", "kill -9 1234".dimmed());
-        println!("  {}", "kill -a notepad".dimmed());
-    } else {
-        #[cfg(windows)]
-        {
-            let args: Vec<&str> = parts[1..].to_vec();
-            match kill::execute(&args) {
-                Ok(_) => {}
-                Err(e) => println!("{}", format!("kill: {}", e).red()),
-            }
-        }
-
-        #[cfg(not(windows))]
-        {
-            println!("{}", "kill command is only supported on Windows platform.".red());
-        }
-    }
+// Utility commands
+fn cd_command(path: &str) -> io::Result<()> {
+    env::set_current_dir(path)
 }
 
-            "psh" | "powershell" => {
-                if parts.len() == 1 {
-                    powershell::execute(&[]);
-                } else if parts.len() == 2 && parts[1] == "--interactive" {
-                    powershell::interactive_mode();
-                } else {
-                    let args: Vec<&str> = parts[1..].iter().copied().collect();
-                    powershell::execute(&args);
-                }
-            }
-           
-            "rm" => {
-                let args: Vec<String> = env::args().collect();
-                if args.len() < 3 {
-                     eprintln!("Please provide a file to remove");
-                 return;
-             }
- 
-             for file in &args[2..] {
-                 match fs::remove_file(file) {
-                     Ok(_) => println!("Deleted {}", file),
-                     Err(e) => eprintln!("Failed to delete {}: {}", file, e),
-                 }
-             }
-         }
-            "help" => {
-                println!("{}", "Available Commands:".bold().white());
-                println!(
-                    "  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}",
-                    "cd".bold().yellow(),
-                    "chmod".bold().yellow(),
-                    "chown".bold().yellow(),
-                    "df".bold().yellow(),
-                    "exit".bold().red(),
-                    "free".bold().yellow(),
-                    "git".bold().yellow(),
-                    "kill".bold().yellow(),
-                    "ls".bold().yellow(),
-                    "ps".bold().yellow(),
-                    "psh/powershell".bold().cyan(),
-                    "pwd".bold().yellow(),
-                    "sensors".bold().yellow(),
-                    "uptime".bold().yellow(),
-                    "uname".bold().yellow(),
-                );
-            }
-
-            _ => {
-                println!("{}", format!("Unknown command: '{}'", command).red());
-                println!("{}", "Type 'help' for available commands".dimmed());
-            }
-        }
-    }
-}
-
-
-
-// --- CD, PWD, and LS commands ---
-
-fn cd_command(path: &str) -> std::io::Result<()> {
-    std::env::set_current_dir(path)
-}
-
-fn pwd_command() -> std::io::Result<()> {
-    let cwd = std::env::current_dir()?;
+fn pwd_command() -> io::Result<()> {
+    let cwd = env::current_dir()?;
     println!("{}", cwd.display().to_string().bold().cyan());
     Ok(())
 }
 
-fn ls_command(path: &str) -> std::io::Result<()> {
+fn ls_command(path: &str) -> io::Result<()> {
     let entries = fs::read_dir(path)?;
     for entry in entries {
         let entry = entry?;
@@ -355,5 +246,4 @@ fn ls_command(path: &str) -> std::io::Result<()> {
         }
     }
     Ok(())
-}
 }

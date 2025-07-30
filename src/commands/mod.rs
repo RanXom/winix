@@ -46,3 +46,21 @@ pub mod kill;
 pub fn dummy() {
   println!("command module loaded");
 }
+
+pub async fn grep_async_from_string(pattern: &str, content: &str) -> io::Result<String> {
+  let result = content
+      .lines()
+      .filter(|line| line.contains(pattern))
+      .map(|s| format!("{}\n", s))
+      .collect();
+  Ok(result)
+}
+
+pub async fn head_async_from_string(content: &str, lines: usize) -> io::Result<String> {
+  let result = content
+      .lines()
+      .take(lines)
+      .map(|s| format!("{}\n", s))
+      .collect();
+  Ok(result)
+}

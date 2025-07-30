@@ -6,8 +6,8 @@ use tokio::io::{AsyncBufReadExt, BufReader as TokioBufReader};
 use futures::stream::{self, Stream, StreamExt};
 use bytes::Bytes;
 
-// Original sync version (kept for benchmarking)
-
+// === Sync implementation ===
+#[allow(dead_code)]
 pub fn cat<S: AsRef<Path>>(files: Vec<S>) -> io::Result<String> {
     let mut result = String::new();
 
@@ -17,9 +17,8 @@ pub fn cat<S: AsRef<Path>>(files: Vec<S>) -> io::Result<String> {
 
         for line in reader.lines() {
             let mut line = line?;
-            // Normalize Windows-style line endings (\r\n) to Unix-style (\n)
             if line.ends_with('\r') {
-                line.pop(); // Remove '\r'
+                line.pop();
             }
             result.push_str(&line);
             result.push('\n');
@@ -29,18 +28,17 @@ pub fn cat<S: AsRef<Path>>(files: Vec<S>) -> io::Result<String> {
     Ok(result)
 }
 
-
-// Simplified async version that returns a Stream<Bytes>
+#[allow(dead_code)]
+// === Async stream version ===
 pub async fn cat_async<S: AsRef<Path> + Send + 'static>(
     files: Vec<S>,
 ) -> impl Stream<Item = io::Result<Bytes>> {
     if files.is_empty() {
         return stream::empty().boxed();
     }
-    
-    // For multiple files, we'll concatenate them sequentially
+
     let mut all_streams = Vec::new();
-    
+
     for file_path in files {
         let path = file_path.as_ref().to_path_buf();
         let file_stream = async move {
@@ -48,17 +46,16 @@ pub async fn cat_async<S: AsRef<Path> + Send + 'static>(
                 Ok(file) => {
                     let reader = TokioBufReader::new(file);
                     let lines = reader.lines();
-                    
+
                     Ok::<_, io::Error>(stream::unfold(lines, |mut lines| async move {
                         match lines.next_line().await {
                             Ok(Some(line)) => {
-                                let mut normalized_line = line;
-                                // Normalize Windows-style line endings (\r\n) to Unix-style (\n)
-                                if normalized_line.ends_with('\r') {
-                                    normalized_line.pop(); // Remove '\r'
+                                let mut normalized = line;
+                                if normalized.ends_with('\r') {
+                                    normalized.pop();
                                 }
-                                normalized_line.push('\n');
-                                Some((Ok(Bytes::from(normalized_line)), lines))
+                                normalized.push('\n');
+                                Some((Ok(Bytes::from(normalized)), lines))
                             }
                             Ok(None) => None,
                             Err(e) => Some((Err(e), lines)),
@@ -70,9 +67,7 @@ pub async fn cat_async<S: AsRef<Path> + Send + 'static>(
         };
         all_streams.push(file_stream);
     }
-    
-    // For now, let's just return the first file's stream
-    // In a more complex implementation, we'd concatenate all streams
+
     if let Some(first_stream) = all_streams.into_iter().next() {
         match first_stream.await {
             Ok(stream) => stream.boxed(),
@@ -83,129 +78,116 @@ pub async fn cat_async<S: AsRef<Path> + Send + 'static>(
     }
 }
 
-// Convenience function that collects the stream into a String
+#[allow(dead_code)]
+// === Async version returning String ===
 pub async fn cat_async_to_string<S: AsRef<Path> + Send + 'static>(
     files: Vec<S>,
 ) -> io::Result<String> {
     let mut result = String::new();
-    
-    // Process each file sequentially
+
     for file_path in files {
         let path = file_path.as_ref().to_path_buf();
-        
+
         match TokioFile::open(&path).await {
             Ok(file) => {
                 let reader = TokioBufReader::new(file);
-                let lines = reader.lines();
-                
-                // Use a simpler approach without complex streams
-                let mut lines = lines;
+                let mut lines = reader.lines();
                 while let Ok(Some(line)) = lines.next_line().await {
-                    let mut normalized_line = line;
-                    // Normalize Windows-style line endings (\r\n) to Unix-style (\n)
-                    if normalized_line.ends_with('\r') {
-                        normalized_line.pop(); // Remove '\r'
+                    let mut normalized = line;
+                    if normalized.ends_with('\r') {
+                        normalized.pop();
                     }
-                    normalized_line.push('\n');
-                    result.push_str(&normalized_line);
+                    normalized.push('\n');
+                    result.push_str(&normalized);
                 }
             }
             Err(e) => return Err(e),
         }
     }
-    
+
     Ok(result)
 }
 
-// Benchmark function to compare sync vs async performance
+// === Benchmarking ===
+#[allow(dead_code)]
 pub async fn benchmark_cat_sync_vs_async<S: AsRef<Path> + Send + Clone + 'static>(
     files: Vec<S>,
 ) -> (std::time::Duration, std::time::Duration) {
     use std::time::Instant;
-    
-    // Benchmark sync version
+
     let start = Instant::now();
-    let _sync_result = cat(files.clone());
-    let sync_duration = start.elapsed();
-    
-    // Benchmark async version
+    let _ = cat(files.clone());
+    let sync_dur = start.elapsed();
+
     let start = Instant::now();
-    let _async_result = cat_async_to_string(files).await;
-    let async_duration = start.elapsed();
-    
-    (sync_duration, async_duration)
+    let _ = cat_async_to_string(files).await;
+    let async_dur = start.elapsed();
+
+    (sync_dur, async_dur)
 }
 
+// === Tests ===
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::fs;
 
     #[test]
     fn test_cat_sync_single_file() {
-        let file_path = "test_single.txt";
-        let content = "Hello, world!\r\nSecond line."; // Simulate Windows CRLF
+        let path = "test_sync.txt";
+        let content = "Line1\r\nLine2";
+        std::fs::write(path, content).unwrap();
 
-        std::fs::write(file_path, content).unwrap();
+        let output = cat(vec![path]).unwrap();
+        assert_eq!(output, "Line1\nLine2\n");
 
-        let result = cat(vec![file_path]).unwrap();
-        assert_eq!(result, "Hello, world!\nSecond line.\n");
-
-        std::fs::remove_file(file_path).unwrap();
+        std::fs::remove_file(path).unwrap();
     }
 
     #[tokio::test]
-    async fn test_cat_async_single_file() {
-        let file_path = "test_async_single.txt";
-        let content = "Hello, world!\r\nSecond line."; // Simulate Windows CRLF
+    async fn test_cat_async_to_string_file() {
+        let path = "test_async.txt";
+        let content = "Hello\r\nAsync";
+        fs::write(path, content).await.unwrap();
 
-        tokio::fs::write(file_path, content).await.unwrap();
+        let output = cat_async_to_string(vec![path]).await.unwrap();
+        assert_eq!(output, "Hello\nAsync\n");
 
-        let result = cat_async_to_string(vec![file_path]).await.unwrap();
-        assert_eq!(result, "Hello, world!\nSecond line.\n");
-
-        tokio::fs::remove_file(file_path).await.unwrap();
+        fs::remove_file(path).await.unwrap();
     }
 
     #[tokio::test]
-    async fn test_cat_async_stream() {
-        let file_path = "test_stream.txt";
-        let content = "Line 1\r\nLine 2\nLine 3";
+    async fn test_cat_async_stream_file() {
+        let path = "test_stream.txt";
+        let content = "S1\r\nS2\nS3";
+        fs::write(path, content).await.unwrap();
 
-        tokio::fs::write(file_path, content).await.unwrap();
+        let mut stream = cat_async(vec![path]).await;
+        let mut collected = String::new();
 
-        let mut stream = cat_async(vec![file_path]).await;
-        let mut result = String::new();
-        
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
+        while let Some(chunk) = stream.next().await {
+            match chunk {
                 Ok(bytes) => {
-                    if let Ok(chunk_str) = String::from_utf8(bytes.to_vec()) {
-                        result.push_str(&chunk_str);
-                    }
+                    collected.push_str(&String::from_utf8_lossy(&bytes));
                 }
-                Err(e) => panic!("Stream error: {:?}", e),
+                Err(e) => panic!("Stream failed: {:?}", e),
             }
         }
-        
-        assert_eq!(result, "Line 1\nLine 2\nLine 3\n");
 
-        tokio::fs::remove_file(file_path).await.unwrap();
+        assert_eq!(collected, "S1\nS2\nS3\n");
+        fs::remove_file(path).await.unwrap();
     }
 
     #[tokio::test]
-    async fn test_benchmark() {
-        let file_path = "benchmark_test.txt";
-        let content = "Test content\n".repeat(1000); // Create a larger file for meaningful benchmark
+    async fn test_benchmark_runs() {
+        let path = "bench.txt";
+        let content = "Benchmark line\n".repeat(500);
+        fs::write(path, content).await.unwrap();
 
-        tokio::fs::write(file_path, content).await.unwrap();
+        let (_sync, _async) = benchmark_cat_sync_vs_async(vec![path]).await;
 
-        let (sync_duration, async_duration) = benchmark_cat_sync_vs_async(vec![file_path]).await;
-        
-        println!("Sync duration: {:?}", sync_duration);
-        println!("Async duration: {:?}", async_duration);
-        
-        // Clean up
-        tokio::fs::remove_file(file_path).await.unwrap();
+        fs::remove_file(path).await.unwrap();
     }
 }
+
 

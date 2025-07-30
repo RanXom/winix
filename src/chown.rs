@@ -1,8 +1,5 @@
 #[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;
-use std::ffi::{OsStr, OsString};
-use std::ptr;
-use colored::*;
 
 #[cfg(windows)]
 use winapi::shared::winerror::ERROR_SUCCESS;

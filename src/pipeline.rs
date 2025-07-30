@@ -1,14 +1,19 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::io;
-use futures::stream::{self, Stream, StreamExt};
-use bytes::Bytes;
+
 
 // Pipeline command trait
 pub trait AsyncCommand {
     type Input;
     type Output;
-    
-    async fn execute(&self, input: Self::Input) -> io::Result<Self::Output>;
+
+    fn execute(
+        &self,
+        input: Self::Input,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::Output>> + Send + '_>>;
 }
+
 
 // Pipeline that chains multiple commands
 pub struct Pipeline<C1, C2> {
@@ -46,27 +51,34 @@ impl CatGrepPipeline {
 impl AsyncCommand for CatGrepPipeline {
     type Input = ();
     type Output = String;
-    
-    async fn execute(&self, _input: ()) -> io::Result<String> {
+
+    fn execute(&self, _input: ()) -> Pin<Box<dyn Future<Output = io::Result<String>> + Send + '_>> {
         use crate::cat::cat_async_to_string;
         use crate::grep::grep_async_to_string;
+
+        let files = self.files.clone();
+        let pattern = self.pattern.clone();
+
+        Box::pin(async move {
+            // Step 1: Run `cat`
+            let cat_output = cat_async_to_string(files).await?;
+
+            // Step 2: Write output to temp file
+            let temp_file = "temp_pipeline.txt";
+            tokio::fs::write(temp_file, &cat_output).await?;
+
+            // Step 3: Run `grep`
+            let result = grep_async_to_string(&pattern, vec![temp_file.to_string()]).await;
+
+            // Step 4: Clean up
+            let _ = tokio::fs::remove_file(temp_file).await;
+            result
         
-        // First, cat the files
-        let cat_output = cat_async_to_string(self.files.clone()).await?;
-        
-        // Write to a temporary file for grep
-        let temp_file = "temp_pipeline.txt";
-        tokio::fs::write(temp_file, cat_output).await?;
-        
-        // Then grep the pattern
-        let result = grep_async_to_string(&self.pattern, vec![temp_file]).await;
-        
-        // Clean up
-        let _ = tokio::fs::remove_file(temp_file).await;
-        
-        result
+        })
     }
 }
+
+
 
 // Example: Cat -> Head pipeline
 pub struct CatHeadPipeline {
@@ -83,27 +95,29 @@ impl CatHeadPipeline {
 impl AsyncCommand for CatHeadPipeline {
     type Input = ();
     type Output = String;
-    
-    async fn execute(&self, _input: ()) -> io::Result<String> {
+
+    fn execute(&self, _input: ()) -> Pin<Box<dyn Future<Output = io::Result<String>> + Send + '_>> {
+
         use crate::cat::cat_async_to_string;
         use crate::head::head_async_to_string;
-        
-        // First, cat the files
-        let cat_output = cat_async_to_string(self.files.clone()).await?;
-        
-        // Write to a temporary file for head
-        let temp_file = "temp_head_pipeline.txt";
-        tokio::fs::write(temp_file, cat_output).await?;
-        
-        // Then head the lines
-        let result = head_async_to_string(vec![temp_file], self.lines).await;
-        
-        // Clean up
-        let _ = tokio::fs::remove_file(temp_file).await;
-        
-        result
+
+        let files = self.files.clone();
+        let lines = self.lines;
+
+        Box::pin(async move {
+            let cat_output = cat_async_to_string(files.clone()).await?;
+
+            let temp_file = "temp_head_pipeline.txt";
+            tokio::fs::write(temp_file, cat_output).await?;
+
+            let result = head_async_to_string(vec![temp_file], lines).await;
+
+            let _ = tokio::fs::remove_file(temp_file).await;
+            result
+        })
     }
 }
+
 
 // Generic pipeline executor
 pub async fn execute_pipeline<C: AsyncCommand<Input = ()>>(

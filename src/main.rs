@@ -3,12 +3,10 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use winix::{echo, touch};
+use rustyline::error::ReadlineError;
+
 use crate::cat::cat;
 use std::process;
-use input::LineEditor;
-use rustyline::error::ReadlineError;
-use rustyline::{Editor, Config, DefaultEditor};
-
 
 mod cd;
 mod disown;
@@ -27,6 +25,9 @@ mod uptime;
 mod cat;
 mod rm;
 mod input;
+#[cfg(windows)]
+mod chmod;
+
 
 
 fn main() {
@@ -68,6 +69,9 @@ fn main() {
             }
         }
 
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
     if args.len() > 1 && args[1] == "--cli" {
         // Run original command-line mode (optional fallback)
         show_splash_screen();
@@ -210,29 +214,6 @@ fn command_loop() {
 
             "echo" => echo::run(&command_args),
             "touch" => touch::run(&command_args),
-
-
-            // "echo" => {
-            //     if !command_args.is_empty() {
-            //         println!("{}", command_args.join(" "));
-            //     } else {
-            //         println!(); // print a blank line if no arguments
-            //     }
-            // }
-        
-            // "touch" => {
-            //     for file in &command_args {
-            //         match std::fs::OpenOptions::new()
-            //             .create(true)
-            //             .write(true)
-            //             .append(true)
-            //             .open(file)
-            //         {
-            //             Ok(_) => {}
-            //             Err(e) => eprintln!("touch: cannot create file '{}': {}", file, e),
-            //         }
-            //     }
-            // }
             "uname" => uname::execute(),
             "ps" => ps::execute(),
             "sensors" => sensors::execute(),
@@ -260,31 +241,38 @@ fn command_loop() {
                     println!("{}", format!("ls: {}", e).red());
                 }
             }
-            "kill" => {
-                if parts.len() < 2 {
-                    println!("{}", "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".red());
-                    println!();
-                    println!("{}", "Supported Windows signals:".yellow());
-                    println!("  {}", "-2, -INT    Interrupt (Ctrl+C)".dimmed());
-                    println!("  {}", "-3, -QUIT   Quit (Ctrl+Break)".dimmed());
-                    println!("  {}", "-9, -KILL   Force terminate (default)".dimmed());
-                    println!("  {}", "-15, -TERM  Graceful terminate".dimmed());
-                    println!();
-                    println!("{}", "Examples:".yellow());
-                    println!("  {}", "kill 1234".dimmed());
-                    println!("  {}", "kill -TERM 1234".dimmed());
-                    println!("  {}", "kill -9 1234".dimmed());
-                    println!("  {}", "kill -a notepad".dimmed());
-                } else {
-                    // Pass all arguments except the command itself
-                    let args: Vec<&str> = parts[1..].to_vec();
-                    #[cfg(windows)]
-                    match kill::execute(&args) {
-                        Ok(_) => {}
-                        Err(e) => println!("{}", format!("kill: {}", e).red()),
-                    }
-                }
+         "kill" => {
+    if parts.len() < 2 {
+        println!("{}", "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...".red());
+        println!();
+        println!("{}", "Supported Windows signals:".yellow());
+        println!("  {}", "-2, -INT    Interrupt (Ctrl+C)".dimmed());
+        println!("  {}", "-3, -QUIT   Quit (Ctrl+Break)".dimmed());
+        println!("  {}", "-9, -KILL   Force terminate (default)".dimmed());
+        println!("  {}", "-15, -TERM  Graceful terminate".dimmed());
+        println!();
+        println!("{}", "Examples:".yellow());
+        println!("  {}", "kill 1234".dimmed());
+        println!("  {}", "kill -TERM 1234".dimmed());
+        println!("  {}", "kill -9 1234".dimmed());
+        println!("  {}", "kill -a notepad".dimmed());
+    } else {
+        #[cfg(windows)]
+        {
+            let args: Vec<&str> = parts[1..].to_vec();
+            match kill::execute(&args) {
+                Ok(_) => {}
+                Err(e) => println!("{}", format!("kill: {}", e).red()),
             }
+        }
+
+        #[cfg(not(windows))]
+        {
+            println!("{}", "kill command is only supported on Windows platform.".red());
+        }
+    }
+}
+
             "psh" | "powershell" => {
                 if parts.len() == 1 {
                     powershell::execute(&[]);
@@ -368,11 +356,4 @@ fn ls_command(path: &str) -> std::io::Result<()> {
     }
     Ok(())
 }
-
-fn rm(files: Vec<&str>) -> Result<(), std::io::Error> {
-    for file in files {
-        std::fs::remove_file(file)?;
-        println!("Deleted: {}", file);
-    }
-    Ok(())
 }

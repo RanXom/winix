@@ -4,7 +4,11 @@ mod tests {
     use std::io::Write;
     use std::path::Path;
 
+<<<<<<< Updated upstream
     use winix::cat::{cat, cat_async_to_string, benchmark_cat_sync_vs_async};
+=======
+    use winix::cat::cat;
+>>>>>>> Stashed changes
 
     #[test]
     fn test_cat_single_file() {
@@ -42,6 +46,7 @@ mod tests {
         let result = cat(vec!["no_such_file.txt"]);
         assert!(result.is_err());
     }
+<<<<<<< Updated upstream
 
     #[tokio::test]
     async fn test_cat_async_single_file() {
@@ -96,4 +101,6 @@ mod tests {
         // Clean up
         tokio::fs::remove_file(file_path).await.unwrap();
     }
+=======
+>>>>>>> Stashed changes
 }

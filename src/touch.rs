@@ -1,6 +1,6 @@
-use std::fs::{File, OpenOptions};
+use std::fs::{File};
 use std::path::Path;
-use std::io::Write;
+
 
 #[cfg(unix)]
 use filetime::{FileTime, set_file_times};
@@ -28,7 +28,10 @@ pub fn run(args: &[String]) {
             }
 
             #[cfg(windows)]
-            {
+        
+            {   
+                use std::fs::OpenOptions;
+                use std::io::Write;
                 // On Windows, simulate a timestamp update by opening in append mode
                 match OpenOptions::new().append(true).open(&path) {
                     Ok(mut file) => {

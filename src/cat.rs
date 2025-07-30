@@ -7,6 +7,7 @@ use futures::stream::{self, Stream, StreamExt};
 use bytes::Bytes;
 
 // Original sync version (kept for benchmarking)
+
 pub fn cat<S: AsRef<Path>>(files: Vec<S>) -> io::Result<String> {
     let mut result = String::new();
 
@@ -27,6 +28,7 @@ pub fn cat<S: AsRef<Path>>(files: Vec<S>) -> io::Result<String> {
 
     Ok(result)
 }
+
 
 // Simplified async version that returns a Stream<Bytes>
 pub async fn cat_async<S: AsRef<Path> + Send + 'static>(
@@ -206,3 +208,4 @@ mod tests {
         tokio::fs::remove_file(file_path).await.unwrap();
     }
 }
+

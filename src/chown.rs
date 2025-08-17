@@ -1,5 +1,9 @@
 #[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;
+#[cfg(windows)]
+use std::{ffi::OsStr, ptr};
+#[cfg(windows)]
+use colored::Colorize;
 
 #[cfg(windows)]
 use winapi::shared::winerror::ERROR_SUCCESS;
@@ -16,9 +20,8 @@ use winapi::um::winbase::FormatMessageW;
 #[cfg(windows)]
 use winapi::um::winbase::{FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_ALLOCATE_BUFFER, FORMAT_MESSAGE_IGNORE_INSERTS};
 #[cfg(windows)]
-use winapi::um::memoryapi::LocalFree;
-#[cfg(windows)]
-use std::os::windows::ffi::OsStringExt;
+use winapi::um::winbase::LocalFree;
+// no OsStringExt needed when using from_utf16_lossy
 
 /// Main entry point for chown command (only works on Windows)
 #[cfg(windows)]
@@ -138,8 +141,8 @@ fn get_last_error_message() -> String {
             return format!("Unknown error ({})", GetLastError());
         }
 
-        let slice = std::slice::from_raw_parts(buf, len as usize);
-        let message = OsString::from_wide(slice).to_string_lossy().trim().to_string();
+    let slice = std::slice::from_raw_parts(buf, len as usize);
+    let message = String::from_utf16_lossy(slice).trim().to_string();
         LocalFree(buf as *mut _);
         message
     }
@@ -147,7 +150,7 @@ fn get_last_error_message() -> String {
 
 #[cfg(windows)]
 fn name_to_sid(name: &str, _domain: Option<&str>) -> Result<Vec<u8>, u32> {
-    use std::mem::{self, MaybeUninit};
+    use std::mem;
     use std::ptr::null_mut;
     use std::os::windows::ffi::OsStrExt;
     use winapi::um::winbase::LookupAccountNameW;

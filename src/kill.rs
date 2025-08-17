@@ -7,8 +7,8 @@ kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--]
 We will follow this structure closely.
 
 Arguments breakdown:
-- -signal: Specify signal number or name 
-- -s signal: Alternative signal specification  
+- -signal: Specify signal number or name
+- -s signal: Alternative signal specification
 - -p: Print PID only, don't send signal
 - -q value: Send signal with additional data
 - -a: Apply to all processes with given name
@@ -30,18 +30,20 @@ Key things addressed:
 */
 #![cfg(windows)]
 
-use colored::*;
+use colored::Colorize;
 use std::thread;
 use std::time::Duration;
-use winapi::um::processthreadsapi::{OpenProcess, TerminateProcess, GetCurrentProcessId};
-use winapi::um::winnt::{PROCESS_TERMINATE, PROCESS_QUERY_INFORMATION};
-use winapi::um::handleapi::{CloseHandle};
+use winapi::shared::minwindef::{BOOL, DWORD, LPARAM, TRUE};
+use winapi::shared::windef::HWND;
 use winapi::um::errhandlingapi::GetLastError;
-use winapi::um::wincon::{GenerateConsoleCtrlEvent, CTRL_C_EVENT, CTRL_BREAK_EVENT};
+use winapi::um::handleapi::CloseHandle;
+use winapi::um::processthreadsapi::{GetCurrentProcessId, OpenProcess, TerminateProcess};
+use winapi::um::tlhelp32::{
+    CreateToolhelp32Snapshot, PROCESSENTRY32, Process32First, Process32Next, TH32CS_SNAPPROCESS,
+};
+use winapi::um::wincon::{CTRL_BREAK_EVENT, CTRL_C_EVENT, GenerateConsoleCtrlEvent};
+use winapi::um::winnt::{PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE};
 use winapi::um::winuser::{EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE};
-use winapi::um::tlhelp32::{CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS};
-use winapi::shared::windef::{HWND};
-use winapi::shared::minwindef::{BOOL, DWORD, TRUE, LPARAM};
 
 // Simple debug macro replacement
 macro_rules! debug {
@@ -88,7 +90,8 @@ impl Default for KillOptions {
 
 pub fn execute(args: &[&str]) -> Result<(), String> {
     if args.is_empty() {
-        return Err(format!("{}",
+        return Err(format!(
+            "{}",
             "Usage: kill [-signal|-s signal|-p] [-q value] [-a] [--timeout milliseconds signal] [--] pid|name...\n\
             \n\
             Supported signals on Windows:\n\
@@ -113,27 +116,31 @@ pub fn execute(args: &[&str]) -> Result<(), String> {
 
 fn handle_kill(options: &KillOptions) -> Result<(), String> {
     debug!("Starting kill operation");
-    
+
     // Handle special modes first
     if options.print_only {
         return handle_print_only_mode(options);
     }
-    
+
     // Determine the kill method to use
-    let signal = options.signal.as_ref()
+    let signal = options
+        .signal
+        .as_ref()
         .or(options.signal_explicit.as_ref())
         .map(|s| s.as_str())
         .unwrap_or("9"); // Default to SIGKILL if no signal specified
-    
+
     let kill_method = signal_to_windows_method(signal)?;
     debug!("Using kill method: {:?}", kill_method);
-    
+
     // Process each target
     let mut results = Vec::new();
     for target in &options.targets {
         let result = if target.chars().all(|c| c.is_ascii_digit()) {
             // Target is a PID
-            let pid: u32 = target.parse().map_err(|_| format!("Invalid PID: {} must be a number or name", target))?;
+            let pid: u32 = target
+                .parse()
+                .map_err(|_| format!("Invalid PID: {} must be a number or name", target))?;
             kill_process_by_pid(pid, &kill_method, options)
         } else {
             // Target is a process name
@@ -141,21 +148,21 @@ fn handle_kill(options: &KillOptions) -> Result<(), String> {
         };
         results.push((target.clone(), result));
     }
-    
+
     // Handle timeout logic if specified
     if let Some(timeout_ms) = options.timeout_ms {
         handle_timeout_kill(&results, timeout_ms, options)?;
     }
-    
+
     // Report results
     report_kill_results(&results)?;
-    
+
     Ok(())
 }
 
 // Handle -p flag: just print PIDs without killing
 fn handle_print_only_mode(options: &KillOptions) -> Result<(), String> {
-    debug!("Print-only mode activated");  
+    debug!("Print-only mode activated");
     for target in &options.targets {
         if target.chars().all(|c| c.is_ascii_digit()) {
             println!("{}", target);
@@ -175,13 +182,16 @@ fn handle_print_only_mode(options: &KillOptions) -> Result<(), String> {
             }
         }
     }
-    
+
     Ok(())
 }
 
-
 // Kill a specific process by PID
-fn kill_process_by_pid(pid: u32, method: &WindowsKillMethod, _options: &KillOptions) -> Result<(), String> {
+fn kill_process_by_pid(
+    pid: u32,
+    method: &WindowsKillMethod,
+    _options: &KillOptions,
+) -> Result<(), String> {
     debug!("Attempting to kill PID {} using method {:?}", pid, method);
     validate_pid_safety(pid)?;
     if !process_exists(pid) {
@@ -196,9 +206,16 @@ fn kill_process_by_pid(pid: u32, method: &WindowsKillMethod, _options: &KillOpti
 }
 
 // Kill processes by name
-fn kill_process_by_name(name: &str, method: &WindowsKillMethod, options: &KillOptions) -> Result<(), String> {
-    debug!("Attempting to kill processes with name '{}' using method {:?}", name, method);
-    
+fn kill_process_by_name(
+    name: &str,
+    method: &WindowsKillMethod,
+    options: &KillOptions,
+) -> Result<(), String> {
+    debug!(
+        "Attempting to kill processes with name '{}' using method {:?}",
+        name, method
+    );
+
     let pids = find_processes_by_name(name)?;
     if pids.is_empty() {
         return Err(format!("No processes found with name: {}", name));
@@ -208,10 +225,10 @@ fn kill_process_by_name(name: &str, method: &WindowsKillMethod, options: &KillOp
     } else {
         vec![pids[0]]
     };
-    
+
     let mut errors = Vec::new();
     let mut success_count = 0;
-    
+
     for pid in targets {
         match kill_process_by_pid(pid, method, options) {
             Ok(_) => {
@@ -229,18 +246,32 @@ fn kill_process_by_name(name: &str, method: &WindowsKillMethod, options: &KillOp
     if success_count == 0 {
         return Err(format!("No processes were killed for name: {}", name));
     }
-    
+
     Ok(())
 }
 
 // Handle timeout logic: send initial signal, wait, then send final signal
-fn handle_timeout_kill(results: &[(String, Result<(), String>)], timeout_ms: u64, options: &KillOptions) -> Result<(), String> {
+fn handle_timeout_kill(
+    results: &[(String, Result<(), String>)],
+    timeout_ms: u64,
+    options: &KillOptions,
+) -> Result<(), String> {
     debug!("Handling timeout kill: {} ms", timeout_ms);
-    
+
     // Get the timeout signal (this should be validated already)
-    let timeout_signal = options.timeout_signal.as_ref().ok_or("Timeout signal not specified")?;
+    let timeout_signal = options
+        .timeout_signal
+        .as_ref()
+        .ok_or("Timeout signal not specified")?;
     let timeout_method = signal_to_windows_method(timeout_signal)?;
-    println!("{}", format!("Timeout kill: waiting {} ms before sending {} signal", timeout_ms, timeout_signal).yellow());
+    println!(
+        "{}",
+        format!(
+            "Timeout kill: waiting {} ms before sending {} signal",
+            timeout_ms, timeout_signal
+        )
+        .yellow()
+    );
     // Collect PIDs from successful initial kills
     let mut target_pids = Vec::new();
     for (target, result) in results {
@@ -264,46 +295,73 @@ fn handle_timeout_kill(results: &[(String, Result<(), String>)], timeout_ms: u64
                         }
                     }
                     Err(_) => {
-                        debug!("Could not find processes for name '{}' during timeout check", target);
+                        debug!(
+                            "Could not find processes for name '{}' during timeout check",
+                            target
+                        );
                     }
                 }
             }
         }
     }
-    
+
     if target_pids.is_empty() {
         println!("{}", "No processes to check for timeout kill".yellow());
         return Ok(());
     }
-    
+
     // Wait for the specified timeout
-    println!("{}", format!("Waiting {} ms for processes to terminate gracefully...", timeout_ms).cyan());
+    println!(
+        "{}",
+        format!(
+            "Waiting {} ms for processes to terminate gracefully...",
+            timeout_ms
+        )
+        .cyan()
+    );
     thread::sleep(Duration::from_millis(timeout_ms));
-    
+
     // Check which processes are still alive and kill them with the timeout signal
     let mut still_alive = Vec::new();
     for (pid, target_name) in target_pids {
         if process_exists(pid) {
             still_alive.push((pid, target_name));
         } else {
-            println!("{}", format!("Process {} ({}) terminated gracefully", pid, target_name).green());
+            println!(
+                "{}",
+                format!("Process {} ({}) terminated gracefully", pid, target_name).green()
+            );
         }
     }
-    
+
     if still_alive.is_empty() {
-        println!("{}", "All processes terminated gracefully within timeout period".green());
+        println!(
+            "{}",
+            "All processes terminated gracefully within timeout period".green()
+        );
         return Ok(());
     }
-    
+
     // Kill remaining processes with the timeout signal
-    println!("{}", format!("Sending {} signal to {} remaining process(es)", timeout_signal, still_alive.len()).yellow());
-    
+    println!(
+        "{}",
+        format!(
+            "Sending {} signal to {} remaining process(es)",
+            timeout_signal,
+            still_alive.len()
+        )
+        .yellow()
+    );
+
     let mut timeout_errors = Vec::new();
     let mut timeout_success = 0;
-    
+
     for (pid, target_name) in still_alive {
-        debug!("Sending timeout signal {} to process {} ({})", timeout_signal, pid, target_name);
-        
+        debug!(
+            "Sending timeout signal {} to process {} ({})",
+            timeout_signal, pid, target_name
+        );
+
         // Validate safety again (process might have changed)
         if let Err(e) = validate_pid_safety(pid) {
             timeout_errors.push(format!("Cannot kill {} ({}): {}", pid, target_name, e));
@@ -312,20 +370,40 @@ fn handle_timeout_kill(results: &[(String, Result<(), String>)], timeout_ms: u64
         match kill_process_with_method(pid, &timeout_method) {
             Ok(_) => {
                 timeout_success += 1;
-                println!("{}", format!("Timeout kill: {} sent to process {} ({})", timeout_signal, pid, target_name).green());
+                println!(
+                    "{}",
+                    format!(
+                        "Timeout kill: {} sent to process {} ({})",
+                        timeout_signal, pid, target_name
+                    )
+                    .green()
+                );
             }
             Err(e) => {
-                timeout_errors.push(format!("Timeout kill failed for {} ({}): {}", pid, target_name, e));
+                timeout_errors.push(format!(
+                    "Timeout kill failed for {} ({}): {}",
+                    pid, target_name, e
+                ));
             }
         }
     }
     if !timeout_errors.is_empty() {
-        println!("{}", format!("Timeout kill errors: {}", timeout_errors.join("; ")).red());
+        println!(
+            "{}",
+            format!("Timeout kill errors: {}", timeout_errors.join("; ")).red()
+        );
     }
     if timeout_success > 0 {
-        println!("{}", format!("Timeout kill completed: {} process(es) killed with {}", timeout_success, timeout_signal).green());
+        println!(
+            "{}",
+            format!(
+                "Timeout kill completed: {} process(es) killed with {}",
+                timeout_success, timeout_signal
+            )
+            .green()
+        );
     }
-    
+
     Ok(())
 }
 
@@ -345,7 +423,10 @@ fn report_kill_results(results: &[(String, Result<(), String>)]) -> Result<(), S
     for (target, result) in results {
         match result {
             Ok(_) => {
-                println!("{}", format!("Successfully processed target: {}", target).green());
+                println!(
+                    "{}",
+                    format!("Successfully processed target: {}", target).green()
+                );
             }
             Err(e) => {
                 println!("{}", format!("Failed to process {}: {}", target, e).red());
@@ -361,9 +442,8 @@ fn report_kill_results(results: &[(String, Result<(), String>)]) -> Result<(), S
 }
 
 // ============================================================================
-// Helper Functions 
+// Helper Functions
 // ============================================================================
-
 
 fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
     let mut options = KillOptions::default();
@@ -430,7 +510,7 @@ fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
                         Ok(ms) => options.timeout_ms = Some(ms),
                         Err(_) => return Err(format!("Invalid timeout value: {}", args[i])),
                     }
-                    
+
                     // Next argument should be the signal
                     i += 1;
                     if i >= args.len() {
@@ -453,7 +533,7 @@ fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
                     return Err(format!("Invalid signal: -{}", signal));
                 }
             }
-            
+
             // Everything else is a target (PID or process name)
             _ => {
                 options.targets.push(arg.to_string());
@@ -461,7 +541,7 @@ fn parse_arguments(args: &[&str]) -> Result<KillOptions, String> {
         }
         i += 1;
     }
-    
+
     Ok(options)
 }
 
@@ -470,18 +550,18 @@ fn validate_options(options: &KillOptions) -> Result<(), String> {
     if options.targets.is_empty() && !options.print_only {
         return Err("No process ID or name specified".to_string());
     }
-    
+
     // Cannot use both -s signal and -signal
     if options.signal.is_some() && options.signal_explicit.is_some() {
         return Err("Cannot specify signal with both -signal and -s options".to_string());
     }
-    
+
     // Validate signal if specified
     let signal_to_check = options.signal.as_ref().or(options.signal_explicit.as_ref());
     if let Some(signal) = signal_to_check {
         signal_to_windows_method(signal)?; // This will return an error for unsupported signals
     }
-    
+
     // -a flag only makes sense with process names, not PIDs
     if options.all_processes {
         for target in &options.targets {
@@ -490,22 +570,23 @@ fn validate_options(options: &KillOptions) -> Result<(), String> {
             }
         }
     }
-    
+
     // Timeout requires a signal
     if options.timeout_ms.is_some() && options.timeout_signal.is_none() {
         return Err("--timeout option requires a signal".to_string());
     }
-    
+
     // Validate timeout signal if specified
     if let Some(timeout_signal) = &options.timeout_signal {
         signal_to_windows_method(timeout_signal)?;
     }
-    
+
     Ok(())
 }
 
 fn is_valid_signal_name(signal: &str) -> bool {
-    matches!(signal.to_uppercase().as_str(),
+    matches!(
+        signal.to_uppercase().as_str(),
         // Termination signals
         "TERM" | "KILL" | "INT" | "QUIT" |
         // Numeric equivalents
@@ -519,7 +600,10 @@ fn signal_to_windows_method(signal: &str) -> Result<WindowsKillMethod, String> {
         "TERM" | "15" => Ok(WindowsKillMethod::GracefulCtrlC),
         "INT" | "2" => Ok(WindowsKillMethod::GracefulCtrlC),
         "QUIT" | "3" => Ok(WindowsKillMethod::GracefulCtrlBreak),
-        _ => Err(format!("Signal '{}' is not supported on Windows. Supported signals: TERM(15), INT(2), QUIT(3), KILL(9)", signal)),
+        _ => Err(format!(
+            "Signal '{}' is not supported on Windows. Supported signals: TERM(15), INT(2), QUIT(3), KILL(9)",
+            signal
+        )),
     }
 }
 
@@ -530,14 +614,14 @@ fn process_exists(pid: u32) -> bool {
         let process_handle = OpenProcess(
             PROCESS_QUERY_INFORMATION,
             0, // bInheritHandle = FALSE
-            pid
+            pid,
         );
-        
+
         if process_handle.is_null() {
             debug!("Process {} does not exist or cannot be accessed", pid);
             return false;
         }
-        
+
         // Process exists and we can access it
         CloseHandle(process_handle);
         debug!("Process {} exists and is accessible", pid);
@@ -566,13 +650,16 @@ fn validate_pid_safety(pid: u32) -> Result<(), String> {
 fn find_processes_by_name(name: &str) -> Result<Vec<u32>, String> {
     debug!("Finding processes with name: {}", name);
     let mut matching_pids = Vec::new();
-    
+
     unsafe {
         // Take a snapshot of all processes in the system
         let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if snapshot == winapi::um::handleapi::INVALID_HANDLE_VALUE {
             let error_code = GetLastError();
-            return Err(format!("Failed to create process snapshot: Windows error code {}", error_code));
+            return Err(format!(
+                "Failed to create process snapshot: Windows error code {}",
+                error_code
+            ));
         }
         // Initialize the PROCESSENTRY32 structure
         let mut process_entry: PROCESSENTRY32 = std::mem::zeroed();
@@ -582,9 +669,12 @@ fn find_processes_by_name(name: &str) -> Result<Vec<u32>, String> {
         if result == 0 {
             CloseHandle(snapshot);
             let error_code = GetLastError();
-            return Err(format!("Failed to get first process: Windows error code {}", error_code));
+            return Err(format!(
+                "Failed to get first process: Windows error code {}",
+                error_code
+            ));
         }
-        
+
         // Iterate through all processes in the snapshot
         loop {
             // Convert the szExeFile (which is a null-terminated C string) to a Rust string
@@ -592,16 +682,19 @@ fn find_processes_by_name(name: &str) -> Result<Vec<u32>, String> {
                 .to_string_lossy()
                 .to_lowercase();
             let target_name = name.to_lowercase();
-            
+
             // Check if the process name matches (with or without .exe extension)
-            let matches = exe_name == target_name 
+            let matches = exe_name == target_name
                 || exe_name == format!("{}.exe", target_name)
-                || (exe_name.ends_with(".exe") && exe_name[..exe_name.len()-4] == target_name);
+                || (exe_name.ends_with(".exe") && exe_name[..exe_name.len() - 4] == target_name);
             if matches {
-                debug!("Found matching process: {} (PID: {})", exe_name, process_entry.th32ProcessID);
+                debug!(
+                    "Found matching process: {} (PID: {})",
+                    exe_name, process_entry.th32ProcessID
+                );
                 matching_pids.push(process_entry.th32ProcessID);
             }
-            
+
             // Move to the next process
             result = Process32Next(snapshot, &mut process_entry);
             if result == 0 {
@@ -612,8 +705,12 @@ fn find_processes_by_name(name: &str) -> Result<Vec<u32>, String> {
         // Clean up the snapshot handle
         CloseHandle(snapshot);
     }
-    
-    debug!("Found {} processes matching name '{}'", matching_pids.len(), name);
+
+    debug!(
+        "Found {} processes matching name '{}'",
+        matching_pids.len(),
+        name
+    );
     Ok(matching_pids)
 }
 
@@ -623,38 +720,53 @@ fn force_terminate_process(pid: u32) -> Result<(), String> {
     unsafe {
         // Open the process with termination rights
         let process_handle = OpenProcess(
-            PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION, 
+            PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION,
             0, // bInheritHandle = FALSE
-            pid
+            pid,
         );
-        
+
         if process_handle.is_null() {
             let error_code = GetLastError();
             return match error_code {
-                5 => Err(format!("Access denied: Cannot terminate process {} (insufficient privileges)", pid)),
+                5 => Err(format!(
+                    "Access denied: Cannot terminate process {} (insufficient privileges)",
+                    pid
+                )),
                 87 => Err(format!("Invalid PID: Process {} does not exist", pid)),
-                _ => Err(format!("Failed to open process {}: Windows error code {}", pid, error_code)),
+                _ => Err(format!(
+                    "Failed to open process {}: Windows error code {}",
+                    pid, error_code
+                )),
             };
         }
-        
+
         // Attempt to terminate the process
         let result = TerminateProcess(
             process_handle,
-            1 // Exit code - using 1 to indicate forced termination
+            1, // Exit code - using 1 to indicate forced termination
         );
-        
+
         // Clean up the handle
         CloseHandle(process_handle);
-        
+
         if result == 0 {
             let error_code = GetLastError();
             return match error_code {
-                5 => Err(format!("Access denied: Cannot terminate process {} (protected process)", pid)),
-                _ => Err(format!("Failed to terminate process {}: Windows error code {}", pid, error_code)),
+                5 => Err(format!(
+                    "Access denied: Cannot terminate process {} (protected process)",
+                    pid
+                )),
+                _ => Err(format!(
+                    "Failed to terminate process {}: Windows error code {}",
+                    pid, error_code
+                )),
             };
         }
-        
-        println!("{}", format!("Force terminated process {} (SIGKILL)", pid).green());
+
+        println!(
+            "{}",
+            format!("Force terminated process {} (SIGKILL)", pid).green()
+        );
         Ok(())
     }
 }
@@ -666,42 +778,75 @@ fn graceful_terminate_process(pid: u32, use_ctrl_break: bool) -> Result<(), Stri
     } else {
         ("Ctrl+C (SIGINT)", CTRL_C_EVENT)
     };
-    
-    debug!("Gracefully terminating process {} with {}", pid, signal_type);
-    
+
+    debug!(
+        "Gracefully terminating process {} with {}",
+        pid, signal_type
+    );
+
     unsafe {
         let result = GenerateConsoleCtrlEvent(ctrl_event, pid);
-        
+
         if result == 0 {
             let error_code = GetLastError();
             return match error_code {
-                6 => Err(format!("Invalid handle: Process {} is not a console process or not accessible", pid)),
-                87 => Err(format!("Invalid parameter: Process {} may not exist or not be a console application", pid)),
+                6 => Err(format!(
+                    "Invalid handle: Process {} is not a console process or not accessible",
+                    pid
+                )),
+                87 => Err(format!(
+                    "Invalid parameter: Process {} may not exist or not be a console application",
+                    pid
+                )),
                 _ => {
                     // Fallback: If console control event fails, try alternative approaches
-                    debug!("Console control event failed (error {}), attempting alternative graceful termination", error_code);
+                    debug!(
+                        "Console control event failed (error {}), attempting alternative graceful termination",
+                        error_code
+                    );
                     return graceful_terminate_fallback(pid, use_ctrl_break);
                 }
             };
         }
-        
-        println!("{}", format!("Sent {} to process {}", signal_type, pid).green());
+
+        println!(
+            "{}",
+            format!("Sent {} to process {}", signal_type, pid).green()
+        );
         Ok(())
     }
 }
 
 // Fallback graceful termination for non-console applications
 fn graceful_terminate_fallback(pid: u32, use_ctrl_break: bool) -> Result<(), String> {
-    let signal_type = if use_ctrl_break { "Ctrl+Break" } else { "Ctrl+C" };
-    
+    let signal_type = if use_ctrl_break {
+        "Ctrl+Break"
+    } else {
+        "Ctrl+C"
+    };
+
     debug!("Using fallback graceful termination for process {}", pid);
     match window_close_process(pid) {
         Ok(_) => {
-            println!("{}", format!("Sent window close message to process {} (fallback for {})", pid, signal_type).yellow());
+            println!(
+                "{}",
+                format!(
+                    "Sent window close message to process {} (fallback for {})",
+                    pid, signal_type
+                )
+                .yellow()
+            );
             Ok(())
         }
         Err(_) => {
-            println!("{}", format!("Warning: Graceful termination failed for process {}, using force termination", pid).yellow());
+            println!(
+                "{}",
+                format!(
+                    "Warning: Graceful termination failed for process {}, using force termination",
+                    pid
+                )
+                .yellow()
+            );
             force_terminate_process(pid)
         }
     }
@@ -718,20 +863,36 @@ fn window_close_process(pid: u32) -> Result<(), String> {
         };
         // Enumerate all top-level windows and send WM_CLOSE to those owned by our target process
         let result = EnumWindows(
-            Some(enum_windows_proc), 
-            &mut data as *mut EnumWindowsData as LPARAM
+            Some(enum_windows_proc),
+            &mut data as *mut EnumWindowsData as LPARAM,
         );
         if result == 0 {
             let error_code = GetLastError();
-            return Err(format!("Failed to enumerate windows: Windows error code {}", error_code));
+            return Err(format!(
+                "Failed to enumerate windows: Windows error code {}",
+                error_code
+            ));
         }
         if data.windows_found == 0 {
-            return Err(format!("No windows found for process {} (may be a console-only or background process)", pid));
+            return Err(format!(
+                "No windows found for process {} (may be a console-only or background process)",
+                pid
+            ));
         }
         if data.windows_closed == 0 {
-            return Err(format!("Found {} windows for process {} but failed to send close messages", data.windows_found, pid));
+            return Err(format!(
+                "Found {} windows for process {} but failed to send close messages",
+                data.windows_found, pid
+            ));
         }
-        println!("{}", format!("Sent close message to {} window(s) of process {}", data.windows_closed, pid).green());
+        println!(
+            "{}",
+            format!(
+                "Sent close message to {} window(s) of process {}",
+                data.windows_closed, pid
+            )
+            .green()
+        );
         Ok(())
     }
 }
@@ -754,8 +915,11 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
         // If this window belongs to our target process
         if window_pid == data.target_pid {
             data.windows_found += 1;
-            debug!("Found window for process {}, sending WM_CLOSE", data.target_pid);
-            
+            debug!(
+                "Found window for process {}, sending WM_CLOSE",
+                data.target_pid
+            );
+
             // Send WM_CLOSE message to the window
             let result = PostMessageW(hwnd, WM_CLOSE, 0, 0);
             if result != 0 {
@@ -766,4 +930,3 @@ unsafe extern "system" fn enum_windows_proc(hwnd: HWND, lparam: LPARAM) -> BOOL 
         TRUE // Continue enumeration
     }
 }
-

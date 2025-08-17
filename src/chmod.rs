@@ -1,42 +1,20 @@
-use colored::*;
-#[cfg(windows)]
-use std::os::windows::ffi::OsStrExt;
-
-#[cfg(windows)]
-use winapi::um::winnt::*;
-
-#[cfg(windows)]
-use winapi::um::handleapi::*;
-#[cfg(windows)]
-use winapi::um::processthreadsapi::*;
-#[cfg(windows)]
-use winapi::um::securitybaseapi::*;
-#[cfg(windows)]
-use winapi::shared::winerror::*;
-#[cfg(windows)]
-use winapi::um::accctrl::*;
-#[cfg(windows)]
-use winapi::um::aclapi::*;
+use colored::Colorize;
 
 #[cfg(windows)]
 use windows_acl::acl::ACL;
 #[cfg(windows)]
-use windows_acl::helper::*;
+use windows_acl::helper::string_to_sid;
 
-#[cfg(windows)]
-use winapi::um::winnt::{PSID, TOKEN_USER, TokenUser, OWNER_SECURITY_INFORMATION};
-#[cfg(windows)]
-use winapi::um::processthreadsapi::{OpenProcessToken, GetCurrentProcess};
-#[cfg(windows)]
-use winapi::um::securitybaseapi::GetTokenInformation;
 #[cfg(windows)]
 use winapi::um::handleapi::CloseHandle;
 #[cfg(windows)]
-const TOKEN_QUERY: u32 = 0x0008;
-
-
-
-
+use winapi::um::processthreadsapi::{GetCurrentProcess, OpenProcessToken};
+#[cfg(windows)]
+use winapi::um::securitybaseapi::GetTokenInformation;
+#[cfg(windows)]
+use winapi::um::winnt::{
+    FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, PSID, TOKEN_USER,
+};
 
 pub fn execute(args: &[&str]) {
     if args.len() < 2 {
@@ -477,22 +455,22 @@ fn map_octal_to_permissions(octal_digit: u8) -> Vec<u32> {
 }
 
 fn get_current_user_sid() -> Result<PSID, String> {
-    use winapi::um::handleapi::*;
-    use winapi::um::processthreadsapi::*;
-    use winapi::um::securitybaseapi::*;
-    use winapi::um::winnt::*;
-
     unsafe {
         let mut token_handle = std::ptr::null_mut();
 
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token_handle) == 0 {
+        if OpenProcessToken(
+            GetCurrentProcess(),
+            winapi::um::winnt::TOKEN_QUERY,
+            &mut token_handle,
+        ) == 0
+        {
             return Err("Failed to open process token".to_string());
         }
 
         let mut token_user_size = 0;
         GetTokenInformation(
             token_handle,
-            TokenUser,
+            winapi::um::winnt::TokenUser,
             std::ptr::null_mut(),
             0,
             &mut token_user_size,
@@ -502,7 +480,7 @@ fn get_current_user_sid() -> Result<PSID, String> {
 
         if GetTokenInformation(
             token_handle,
-            TokenUser,
+            winapi::um::winnt::TokenUser,
             token_user_buffer.as_mut_ptr() as *mut _,
             token_user_size,
             &mut token_user_size,

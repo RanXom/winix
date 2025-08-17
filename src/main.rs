@@ -1,30 +1,32 @@
-use colored::*;
+use colored::Colorize;
+use rm::rm;
+use rustyline::error::ReadlineError;
 use std::env;
 use std::fs;
 use std::io::{self};
 use winix::{echo, touch};
-use rustyline::error::ReadlineError;
-use rm::rm;
 
+mod cat;
 mod cd;
-mod disown;
+#[cfg(windows)]
+mod chmod;
+#[cfg(windows)]
+mod chown;
 mod df;
+mod disown;
 mod free;
 mod git;
+mod input;
 #[cfg(windows)]
 mod kill;
 mod powershell;
 mod ps;
+mod rm;
 mod sensors;
 mod sudo;
 mod tui;
 mod uname;
 mod uptime;
-mod cat;
-mod rm;
-mod input;
-#[cfg(windows)]
-mod chmod;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -125,14 +127,47 @@ fn handle_command(line: &str) {
         "kill" => {
             if args.is_empty() {
                 println!("{}", "Usage: kill <pid|name> [options]".red());
-            } else if let Err(e) = kill::execute(&args.iter().map(String::as_str).collect::<Vec<_>>()) {
+            } else if let Err(e) =
+                kill::execute(&args.iter().map(String::as_str).collect::<Vec<_>>())
+            {
                 println!("{}", format!("kill: {}", e).red());
             }
         }
 
         #[cfg(windows)]
-        "chmod" | "chown" => {
-            eprintln!("{} command is currently unavailable.", command);
+        "chmod" => {
+            if args.is_empty() {
+                println!("{}", "Usage: chmod <mode> <file>...".red());
+            } else {
+                let mode = &args[0];
+                let files: Vec<&str> = args[1..].iter().map(String::as_str).collect();
+                if files.is_empty() {
+                    println!("{}", "Usage: chmod <mode> <file>...".red());
+                } else {
+                    // Call into library implementation for each file
+                    for f in files {
+                        let _ = chmod::execute(&[mode, f]);
+                    }
+                }
+            }
+        }
+        #[cfg(windows)]
+        "chown" => {
+            if args.is_empty() {
+                println!("{}", "Usage: chown <owner>[:group] <file>...".red());
+            } else {
+                let mode = &args[0];
+                let files: Vec<&str> = args[1..].iter().map(String::as_str).collect();
+                if files.is_empty() {
+                    println!("{}", "Usage: chown <owner>[:group] <file>...".red());
+                } else {
+                    chown::execute(
+                        &std::iter::once(mode.as_str())
+                            .chain(files.into_iter())
+                            .collect::<Vec<&str>>(),
+                    );
+                }
+            }
         }
 
         "rm" => {
@@ -148,9 +183,9 @@ fn handle_command(line: &str) {
             }
         }
         "git" => {
-        let git_args = &["status"]; // Replace with real input
-        git::execute(git_args);
-    }
+            let git_args = &["status"]; // Replace with real input
+            git::execute(git_args);
+        }
         "psh" | "powershell" => {
             if args.get(0).map(String::as_str) == Some("--interactive") {
                 powershell::interactive_mode();
@@ -177,7 +212,8 @@ fn show_splash_screen() {
 ██     ██ ██ ████   ██ ██  ██ ██
 ██  █  ██ ██ ██ ██  ██ ██   ███
 ██ ███ ██ ██ ██  ██ ██ ██  ██ ██
- ███ ███  ██ ██   ████ ██ ██   ██"#.bold()
+ ███ ███  ██ ██   ████ ██ ██   ██"#
+            .bold()
     );
 
     println!(

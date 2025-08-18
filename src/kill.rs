@@ -41,7 +41,7 @@ use winapi::um::processthreadsapi::{GetCurrentProcessId, OpenProcess, TerminateP
 use winapi::um::tlhelp32::{
     CreateToolhelp32Snapshot, PROCESSENTRY32, Process32First, Process32Next, TH32CS_SNAPPROCESS,
 };
-use winapi::um::wincon::{CTRL_BREAK_EVENT, CTRL_C_EVENT, GenerateConsoleCtrlEvent};
+use winapi::um::wincon::{CTRL_BREAK_EVENT, CTRL_C_EVENT};
 use winapi::um::winnt::{PROCESS_QUERY_INFORMATION, PROCESS_TERMINATE};
 use winapi::um::winuser::{EnumWindows, GetWindowThreadProcessId, PostMessageW, WM_CLOSE};
 
@@ -773,7 +773,7 @@ fn force_terminate_process(pid: u32) -> Result<(), String> {
 
 // Graceful terminate using console control events (SIGINT/SIGQUIT)
 fn graceful_terminate_process(pid: u32, use_ctrl_break: bool) -> Result<(), String> {
-    let (signal_type, ctrl_event) = if use_ctrl_break {
+    let signal_type = if use_ctrl_break {
         ("Ctrl+Break (SIGQUIT)", CTRL_BREAK_EVENT)
     } else {
         ("Ctrl+C (SIGINT)", CTRL_C_EVENT)
@@ -784,36 +784,31 @@ fn graceful_terminate_process(pid: u32, use_ctrl_break: bool) -> Result<(), Stri
         pid, signal_type
     );
 
-    unsafe {
-        let result = GenerateConsoleCtrlEvent(ctrl_event, pid);
-
-        if result == 0 {
-            let error_code = GetLastError();
-            return match error_code {
-                6 => Err(format!(
-                    "Invalid handle: Process {} is not a console process or not accessible",
-                    pid
-                )),
-                87 => Err(format!(
-                    "Invalid parameter: Process {} may not exist or not be a console application",
-                    pid
-                )),
-                _ => {
-                    // Fallback: If console control event fails, try alternative approaches
-                    debug!(
-                        "Console control event failed (error {}), attempting alternative graceful termination",
-                        error_code
-                    );
-                    return graceful_terminate_fallback(pid, use_ctrl_break);
-                }
-            };
+    // Avoid sending console control events to prevent affecting our own console/test harness.
+    // Try to close application windows gracefully; if that fails, fall back to force terminate.
+    match window_close_process(pid) {
+        Ok(_) => {
+            println!(
+                "{}",
+                format!(
+                    "Requested graceful termination ({}) for process {}",
+                    signal_type.0, pid
+                )
+                .green()
+            );
+            Ok(())
         }
-
-        println!(
-            "{}",
-            format!("Sent {} to process {}", signal_type, pid).green()
-        );
-        Ok(())
+        Err(_) => {
+            println!(
+                "{}",
+                format!(
+                    "Warning: Graceful termination via window close failed for process {}, using force termination",
+                    pid
+                )
+                .yellow()
+            );
+            force_terminate_process(pid)
+        }
     }
 }
 

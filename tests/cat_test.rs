@@ -24,7 +24,7 @@ async fn test_cat_async_to_string() {
     let file = create_temp_file("async hello");
     let path = file.path();
 
-    let result = cat_async_to_string(path).await;
+    let result = cat_async_to_string(vec![path.to_path_buf()]).await;
     assert!(result.is_ok());
     assert_eq!(result.unwrap().trim(), "async hello");
 }

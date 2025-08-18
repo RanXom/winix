@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Winix"
+           Manufacturer="Sambit"
+           Version="1.0.3"
+           UpgradeCode="3ac6cdd9-33a9-45ae-9df6-207c11f60d24"
+           InstallerVersion="500"
+           Compressed="yes"
+           InstallScope="perMachine">
+    
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Winix is already installed." />
+
+    <MediaTemplate />
+
+    <Feature Id="ProductFeature" Title="Winix CLI" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="Winix" />
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="winix.exe" Guid="3b4e50f3-29cb-4e46-bf55-e39b33e1dc7f">
+        <File Source="target\release\winix.exe" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
